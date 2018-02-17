@@ -11,18 +11,13 @@
 
     <artifactId>server</artifactId>
 
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>com.alphagfx.touchsupport</groupId>
-                <artifactId>TouchSupport</artifactId>
-                <configuration>
-                    <source>1.8</source>
-                    <target>1.8</target>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
+    <dependencies>
+        <dependency>
+            <groupId>com.alphagfx.touchsupport</groupId>
+            <artifactId>TouchSupport</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+    </dependencies>
 
 
 </project>
