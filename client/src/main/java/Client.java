@@ -1,3 +1,5 @@
+import org.apache.log4j.Logger;
+
 import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.net.InetAddress;
@@ -8,14 +10,12 @@ import java.util.Scanner;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.FileHandler;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+
 
 public class Client implements Runnable {
 
     private static ExecutorService executorService = Executors.newCachedThreadPool();
-    private static Logger logger = Logger.getLogger("client");
+    private static Logger logger = Logger.getLogger(Client.class);
 
     private ObjectOutputStream out;
     private Socket socket = new Socket();
@@ -24,12 +24,6 @@ public class Client implements Runnable {
     public static void main(String[] args) {
 
         executorService.execute(new Client());
-        try {
-            logger.addHandler(new FileHandler("client.log"));
-        } catch (IOException e) {
-            System.err.println("No access to the internal disk storage");
-            e.printStackTrace();
-        }
 
     }
 
@@ -39,13 +33,13 @@ public class Client implements Runnable {
             executorService.shutdown();
             executorService.awaitTermination(5, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
-            logger.log(Level.FINE, "task interrupted", e);
+            logger.info("task interrupted", e);
         } finally {
             if (!executorService.isTerminated()) {
-                logger.log(Level.FINE, "cancel non-finished tasks");
+                logger.warn("cancel non-finished tasks");
             }
             executorService.shutdownNow();
-            logger.log(Level.INFO, "shutdown finished");
+            logger.info("shutdown finished");
         }
     }
 
@@ -55,14 +49,14 @@ public class Client implements Runnable {
         try {
             address = InetAddress.getLocalHost();
         } catch (UnknownHostException e) {
-            logger.log(Level.FINE, "unknown host", e);
+            logger.info("unknown host");
         }
         int timeout = 10000;
 
         try {
             socket.connect(new InetSocketAddress(address, 1220), timeout);
         } catch (IOException e) {
-            logger.log(Level.WARNING, "socket exception", e);
+            logger.warn("socket exception", e);
         }
 
         return socket;
@@ -80,24 +74,24 @@ public class Client implements Runnable {
                 try {
                     out = new ObjectOutputStream(socket.getOutputStream());
                 } catch (IOException e) {
-                    logger.log(Level.SEVERE, "output stream exception", e);
+                    logger.error("output stream exception", e);
                 }
                 connectionHandler = new ConnectionHandler(socket);
                 executorService.execute(connectionHandler);
-                logger.log(Level.FINEST, "connected client");
+                logger.info("connected client");
             } else if (line.equals("/exit")) {
                 connectionHandler.setListening(false);
                 executorService.execute(() -> exit());
-                logger.log(Level.FINEST, "terminating");
+                logger.info("terminating");
                 break;
             } else if (line.equals("/disconnect")) {
-                logger.log(Level.FINEST, "disconnecting");
+                logger.info("disconnecting");
                 disconnect();
             } else if (out != null) {
                 try {
                     out.writeObject(new Message(line));
                 } catch (IOException e) {
-                    logger.log(Level.WARNING, "message sending exception", e);
+                    logger.warn("message sending exception", e);
                 }
             }
         }
@@ -107,9 +101,9 @@ public class Client implements Runnable {
         try {
             out.close();
             socket.close();
-            logger.log(Level.FINEST, "connections closed");
+            logger.info("connections closed");
         } catch (IOException e) {
-            logger.log(Level.WARNING, "disconnect exception", e);
+            logger.warn("disconnect exception", e);
         }
     }
 

@@ -22,21 +22,21 @@ public class ConnectionHandler implements Runnable {
             while (isListening()) {
                 try {
                     Message message = ((Message) in.readObject());
-                    System.out.println(message.getMessage());
+//                    System.out.println(message.getMessage());
                 } catch (EOFException messageFail) {
                     System.err.println(messageFail);
                 }
             }
 
         } catch (SocketException e) {
-            System.out.println("0");
-            System.err.println(e);
+//            System.out.println("0");
+//            System.err.println(e);
         } catch (IOException e) {
-            System.out.println("1");
-            System.err.println(e);
+//            System.out.println("1");
+//            System.err.println(e);
         } catch (ClassNotFoundException e) {
-            System.out.println("2");
-            System.err.println(e);
+//            System.out.println("2");
+//            System.err.println(e);
         }
 
     }
