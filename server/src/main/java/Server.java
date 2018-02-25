@@ -1,31 +1,35 @@
+import org.apache.log4j.Logger;
+
 import java.io.IOException;
-import java.io.ObjectOutputStream;
-import java.net.ServerSocket;
-import java.net.Socket;
+import java.nio.ByteBuffer;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class Server {
 
+    private static Logger logger = Logger.getLogger(Server.class.getName());
+
     public static void main(String[] args) {
 
-        try (ServerSocket serverSocket = new ServerSocket(1220)) {
+        try (ServerSocketChannel serverSocketChannel = ServerSocketChannel.open()) {
 
             int i = 1;
-            ExecutorService executorService = Executors.newCachedThreadPool();
+            ExecutorService executorService = Executors.newFixedThreadPool(10);
 
             while (true) {
-                Socket client = serverSocket.accept();
-                client.setSoTimeout(10000);
+                SocketChannel client = serverSocketChannel.accept();
+                ByteBuffer buffer = ByteBuffer.allocate(1024);
 
                 System.out.println("Spawning client " + i++);
 
-                new ObjectOutputStream(client.getOutputStream()).writeObject(new Message("hello from server"));
+                client.write(buffer);
 
                 executorService.submit(new ConnectionHandler(client));
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.error("Server problem : ", e);
         }
     }
 }

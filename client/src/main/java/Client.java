@@ -15,7 +15,7 @@ import java.util.concurrent.TimeUnit;
 public class Client implements Runnable {
 
     private static ExecutorService executorService = Executors.newCachedThreadPool();
-    private static Logger logger = Logger.getLogger(Client.class);
+    private static Logger logger = Logger.getLogger(Client.class.getName());
 
     private ObjectOutputStream out;
     private Socket socket = new Socket();
