@@ -63,7 +63,12 @@ public class Client implements Runnable {
 
     }
 
+    @Override
     public void run() {
+        runMe();
+    }
+
+    private void runNotMe() {
 
         Scanner input = new Scanner(System.in);
 
@@ -76,7 +81,7 @@ public class Client implements Runnable {
                 } catch (IOException e) {
                     logger.error("output stream exception", e);
                 }
-                connectionHandler = new ConnectionHandler(socket);
+//                connectionHandler = new ConnectionHandler();
                 executorService.execute(connectionHandler);
                 logger.info("connected client");
             } else if (line.equals("/exit")) {
@@ -89,12 +94,46 @@ public class Client implements Runnable {
                 disconnect();
             } else if (out != null) {
                 try {
-                    out.writeObject(new Message(line));
+                    out.writeObject(new Message(0, line));
                 } catch (IOException e) {
                     logger.warn("message sending exception", e);
                 }
             }
         }
+    }
+
+    private void runMe() {
+        Scanner input = new Scanner(System.in);
+
+        Chat chat = new Chat();
+        connectionHandler = new ConnectionHandler();
+        executorService.execute(connectionHandler);
+
+        String line = "";
+        while (!line.equals("/exit")) {
+
+            if (chat.readEveryone() == null) {
+                System.out.println("input is null");
+            }
+
+            line = input.nextLine();
+
+            if (line.equals("/connect")) {
+                try {
+                    Chat.Participant participant = chat.addParticipant(0, new InetSocketAddress(InetAddress.getLocalHost(), 8888));
+                    connectionHandler.addChannel(participant);
+                    System.out.println("added channel");
+                    chat.sendMessageTo(0, new Message(0, "hello server"));
+                } catch (IOException e) {
+                    logger.warn("failed to open channel", e);
+                } catch (NullPointerException e) {
+                    logger.error("Null pointer", e);
+                }
+            } else {
+                chat.sendMessageTo(0, new Message(0, line));
+            }
+        }
+        connectionHandler.setListening(false);
     }
 
     public void disconnect() {

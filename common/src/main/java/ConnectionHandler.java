@@ -6,55 +6,74 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
-import java.util.Collections;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Set;
 
 public class ConnectionHandler implements Runnable {
 
     private static Logger logger = Logger.getLogger(ConnectionHandler.class.getName());
 
-    private SocketChannel socketChannel;
-
-    private LinkedList<Message> outMessages;
-    private LinkedList<Message> inMessages;
-
     private Selector selector;
 
     private boolean listening = true;
 
-    public ConnectionHandler(SocketChannel socketChannel) {
-        this.socketChannel = socketChannel;
-        outMessages = ((LinkedList<Message>) Collections.synchronizedList(new LinkedList<Message>()));
-        inMessages = ((LinkedList<Message>) Collections.synchronizedList(new LinkedList<Message>()));
+    public ConnectionHandler() {
+        try {
+            selector = Selector.open();
+        } catch (IOException e) {
+            logger.error("selector open fail", e);
+        }
     }
+
+    public Chat.Participant addChannel(Chat.Participant participant) throws IOException {
+        SocketChannel channel = SocketChannel.open(participant.getAddress());
+        channel.configureBlocking(false);
+        channel.register(selector, SelectionKey.OP_READ).attach(participant);
+        channel.register(selector, SelectionKey.OP_WRITE).attach(participant);
+        selector.wakeup();
+//        channel.setOption(SocketOptions.SO_KEEPALIVE, true);
+        return participant;
+    }
+
+    public Chat.Participant addChannelServer(Chat.Participant participant, SocketChannel socketChannel) throws IOException {
+        socketChannel.configureBlocking(false);
+        socketChannel.register(selector, SelectionKey.OP_READ).attach(participant);
+        socketChannel.register(selector, SelectionKey.OP_WRITE).attach(participant);
+        selector.wakeup();
+        return participant;
+    }
+
+//    public Chat.Participant addChannel
 
     @Override
     public void run() {
-
-        try {
-            selector = Selector.open();
-            socketChannel.configureBlocking(false);
-            socketChannel.register(selector, SelectionKey.OP_READ);
-            socketChannel.register(selector, SelectionKey.OP_WRITE);
-        } catch (IOException e) {
-            logger.error("Open selector or register channel exception", e);
-        }
-
+//        System.out.println("this shit is running");
         while (listening) {
+//            System.out.println("before sleep");
             try {
-                selector.select();
+                Thread.sleep(100);
+//                System.out.println("ended sleep");
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            try {
+//                System.out.println("entered select");
+                selector.selectNow();
 
                 Set<SelectionKey> selectionKeys = selector.selectedKeys();
 
+//                System.out.println("before selection keys");
                 for (SelectionKey key : selectionKeys) {
-
+//                    System.out.println(""+key.attachment().toString());
+//                    System.out.println("channel inner cycle");
                     if (key.isValid()) {
+//                        System.out.println("before reading: "+key.attachment().toString());
 
+                        System.out.println("before readable");
                         if (key.isReadable()) {
+                            System.out.println("inside readable");
                             SocketChannel channel = (SocketChannel) key.channel();
 
+                            System.out.println("after socket");
                             ByteBuffer buffer = ByteBuffer.allocate(Integer.BYTES * 2);
 
                             while (buffer.position() < buffer.limit()) {
@@ -64,21 +83,35 @@ public class ConnectionHandler implements Runnable {
                             int command = buffer.asIntBuffer().get();
                             int size = buffer.asIntBuffer().get();
 
+                            System.out.println("command = " + command + ", size = " + size);
+
                             buffer = ByteBuffer.allocate(size);
 
                             while (buffer.position() < buffer.limit()) {
                                 channel.read(buffer);
                             }
 
-                            inMessages.add(new Message(command, StandardCharsets.UTF_8.decode(buffer).position(0).toString()));
+                            Message message = new Message(command, StandardCharsets.UTF_8.decode(buffer).position(0).toString());
+                            System.out.println("Message read: " + message);
+
+                            ((Chat.Participant) key.attachment()).getMessagesToReceive().add(message);
+//                            System.out.println("ended reading");
+
                         }
+//                        System.out.println("before writing: "+key.attachment().toString());
+
 
                         if (key.isWritable()) {
-                            Message message = outMessages.poll();
+//                            if (key.attachment() == null) {
+//                                System.out.println("LOST ATTACHMENT");
+//                            }
+                            Message message = ((Chat.Participant) key.attachment()).getMessagesToSend().poll();
                             if (message == null) {
-                                key.channel().register(selector, SelectionKey.OP_WRITE);
+//                                System.out.println("no messages");
                                 continue;
                             }
+
+                            System.out.println("Message to write: " + message);
 
                             SocketChannel channel = (SocketChannel) key.channel();
 
@@ -94,10 +127,20 @@ public class ConnectionHandler implements Runnable {
                             while (buffer.position() < buffer.limit()) {
                                 channel.write(buffer);
                             }
+//                            System.out.println("ended writing");
+
                         }
+//                        System.out.println("before register: "+key.attachment().toString());
+
 
                         // Register this channel again
-                        key.channel().register(selector, key.interestOps()).attach(key.attachment());
+                        Object attachment = key.attachment();
+                        SelectionKey selectionKey = key.channel().register(selector, key.interestOps());
+//                        if (attachment == null) {
+//                            System.out.println("STILL NO ATTACHMENT");
+//                        }
+                        selectionKey.attach(attachment);
+//                        System.out.println("registered channel again");
                     }
                 }
 
@@ -105,29 +148,6 @@ public class ConnectionHandler implements Runnable {
                 logger.error("'read-write' cycle exception", e);
             }
         }
-
-//
-//        try (ObjectInputStream in = new ObjectInputStream(socket.getInputStream())) {
-//
-//            while (isListening()) {
-//                try {
-//                    Message message = ((Message) in.readObject());
-//                    System.out.println(message.getMessage());
-//                } catch (EOFException messageFail) {
-//                    System.err.println(messageFail);
-//                }
-//            }
-//
-//        } catch (SocketException e) {
-////            System.out.println("0");
-////            System.err.println(e);
-//        } catch (IOException e) {
-////            System.out.println("1");
-////            System.err.println(e);
-//        } catch (ClassNotFoundException e) {
-////            System.out.println("2");
-////            System.err.println(e);
-//        }
 
     }
 
@@ -139,14 +159,4 @@ public class ConnectionHandler implements Runnable {
         this.listening = listening;
     }
 
-    public void sendMessages(List<Message> messages) {
-        outMessages.addAll(messages);
-    }
-
-    //    should be thread-safe
-    public List<Message> getMessages() {
-        List<Message> result = inMessages.subList(0, inMessages.size());
-        inMessages.removeAll(result);
-        return result;
-    }
 }
