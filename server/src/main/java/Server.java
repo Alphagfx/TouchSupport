@@ -5,6 +5,8 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.sql.Timestamp;
+import java.util.Calendar;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -29,13 +31,14 @@ public class Server {
             while (true) {
                 SocketChannel client = serverSocketChannel.accept();
                 if (client != null) {
+                    System.out.println("hello client");
                     connectionHandler.addChannelServer(chat.addParticipant(i++, client.getLocalAddress()), client);
                     System.out.println("Spawning client " + i++);
                 }
 
                 chat.readEveryone().forEach(System.out::println);
                 chat.checkParticipants().forEach((System.out::println));
-//                chat.sendEveryone(new Message(0, "Timestamp from server: " + new Timestamp(Calendar.getInstance().getTime().getTime()).toString()));
+                chat.sendEveryone(new Message(0, "Timestamp from server: " + new Timestamp(Calendar.getInstance().getTime().getTime()).toString()));
                 try {
                     Thread.sleep(1000);
                 } catch (InterruptedException e) {

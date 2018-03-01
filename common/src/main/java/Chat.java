@@ -22,6 +22,9 @@ public class Chat {
     }
 
     public void sendMessageTo(int id, Message message) {
+        if (message == null) {
+            return;
+        }
         Participant participant = participants.get(id);
         if (participant != null) {
             participant.messagesToSend.add(message);
@@ -29,11 +32,14 @@ public class Chat {
     }
 
     public void sendEveryone(Message message) {
+        if (message == null) {
+            return;
+        }
         participants.forEach((integer, participant) -> participant.messagesToSend.add(message));
     }
 
     public LinkedList<Message> readEveryone() {
-        System.out.println("enter read everyone");
+//        System.out.println("enter read everyone");
         LinkedList<Message> messages = new LinkedList<>();
         participants.forEach((integer, participant) -> messages.addAll(participant.messagesToReceive));
         return messages;
@@ -50,8 +56,10 @@ public class Chat {
         private final Queue<Message> messagesToReceive = new ConcurrentLinkedQueue<>();
         private String name;
         private SocketAddress address;
-        private final Queue<Message> messagesToSend = new ConcurrentLinkedQueue<>();
         private int id;
+
+        private final Queue<Message> messagesToSend = new ConcurrentLinkedQueue<>();
+
 
         private Participant(int id, String name) {
             this.id = id;

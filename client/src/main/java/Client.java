@@ -1,10 +1,8 @@
 import org.apache.log4j.Logger;
 
 import java.io.IOException;
-import java.io.ObjectOutputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.Scanner;
 import java.util.concurrent.ExecutorService;
@@ -17,8 +15,6 @@ public class Client implements Runnable {
     private static ExecutorService executorService = Executors.newCachedThreadPool();
     private static Logger logger = Logger.getLogger(Client.class.getName());
 
-    private ObjectOutputStream out;
-    private Socket socket = new Socket();
     private ConnectionHandler connectionHandler;
 
     public static void main(String[] args) {
@@ -43,71 +39,16 @@ public class Client implements Runnable {
         }
     }
 
-    private Socket connect() {
-
-        InetAddress address = null;
-        try {
-            address = InetAddress.getLocalHost();
-        } catch (UnknownHostException e) {
-            logger.info("unknown host");
-        }
-        int timeout = 10000;
-
-        try {
-            socket.connect(new InetSocketAddress(address, 1220), timeout);
-        } catch (IOException e) {
-            logger.warn("socket exception", e);
-        }
-
-        return socket;
-
-    }
-
     @Override
     public void run() {
         runMe();
-    }
-
-    private void runNotMe() {
-
-        Scanner input = new Scanner(System.in);
-
-        while (true) {
-            String line = input.nextLine();
-            if (line.equals("/connect")) {
-                socket = connect();
-                try {
-                    out = new ObjectOutputStream(socket.getOutputStream());
-                } catch (IOException e) {
-                    logger.error("output stream exception", e);
-                }
-//                connectionHandler = new ConnectionHandler();
-                executorService.execute(connectionHandler);
-                logger.info("connected client");
-            } else if (line.equals("/exit")) {
-                connectionHandler.setListening(false);
-                executorService.execute(() -> exit());
-                logger.info("terminating");
-                break;
-            } else if (line.equals("/disconnect")) {
-                logger.info("disconnecting");
-                disconnect();
-            } else if (out != null) {
-                try {
-                    out.writeObject(new Message(0, line));
-                } catch (IOException e) {
-                    logger.warn("message sending exception", e);
-                }
-            }
-        }
     }
 
     private void runMe() {
         Scanner input = new Scanner(System.in);
 
         Chat chat = new Chat();
-        connectionHandler = new ConnectionHandler();
-        executorService.execute(connectionHandler);
+
 
         String line = "";
         while (!line.equals("/exit")) {
@@ -120,8 +61,8 @@ public class Client implements Runnable {
 
             if (line.equals("/connect")) {
                 try {
+                    logger.info("Connecting");
                     Chat.Participant participant = chat.addParticipant(0, new InetSocketAddress(InetAddress.getLocalHost(), 8888));
-                    connectionHandler.addChannel(participant);
                     System.out.println("added channel");
                     chat.sendMessageTo(0, new Message(0, "hello server"));
                 } catch (IOException e) {
@@ -136,13 +77,13 @@ public class Client implements Runnable {
         connectionHandler.setListening(false);
     }
 
-    public void disconnect() {
+    public ConnectionHandler launch() {
         try {
-            out.close();
-            socket.close();
-            logger.info("connections closed");
-        } catch (IOException e) {
-            logger.warn("disconnect exception", e);
+            InetSocketAddress address = new InetSocketAddress(InetAddress.getLocalHost(), 8888);
+            connectionHandler = ConnectionHandler.getHandler(address);
+            executorService.execute(connectionHandler);
+        } catch (UnknownHostException e) {
+            logger.warn("Unknown host", e);
         }
     }
 
