@@ -1,12 +1,13 @@
+package com.alphagfx.common;
+
 import org.apache.log4j.Logger;
 
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.channels.*;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -19,13 +20,19 @@ public class ConnectionManager implements Runnable {
     private List<ConnectionHandler> handlers = new LinkedList<>();
 
     private ExecutorService executor = Executors.newFixedThreadPool(10);
-    private boolean running;
+    private boolean running = true;
 
-    private List<InetSocketAddress> pendingNewServers = new LinkedList<>();
+    private List<InetSocketAddress> pendingNewServers = Collections.synchronizedList(new LinkedList<>());
+    private List<InetSocketAddress> pendingNewConnection = Collections.synchronizedList(new LinkedList<>());
 
-    private Map<>
+    private Map<Integer, Participant> users = new ConcurrentHashMap<>();
 
-    public ConnectionManager() {
+    private IParticipantProcessor processor;
+
+    private int u = 0;
+
+    public ConnectionManager(IParticipantProcessor processor) {
+        this.processor = processor;
         try {
             inputSelector = Selector.open();
         } catch (IOException e) {
@@ -33,9 +40,14 @@ public class ConnectionManager implements Runnable {
         }
     }
 
-    public ConnectionManager(InetSocketAddress address) {
-        super();
+    public ConnectionManager(IParticipantProcessor processor, InetSocketAddress address) {
+        this(processor);
         addServer(address);
+        System.out.println("Created server");
+    }
+
+    public Map<Integer, Participant> getUsers() {
+        return users;
     }
 
 
@@ -66,34 +78,68 @@ public class ConnectionManager implements Runnable {
             serverSocketChannel.configureBlocking(false);
             serverSocketChannel.bind(address);
             serverSocketChannel.register(inputSelector, SelectionKey.OP_ACCEPT);
+            System.out.println("Server added");
         } catch (IOException e) {
             logger.error("Error during server channel creation", e);
         }
     }
 
-    private void addConnectionHandler() {
-        ConnectionHandler handler = ConnectionHandler.getHandler();
+    public void addConnectionHandler() {
+        ConnectionHandler handler = ConnectionHandler.getHandler(this, processor);
         executor.submit(handler);
         handlers.add(handler);
+        System.out.println("Handler added");
+    }
+
+    public void openConnection(InetSocketAddress address) {
+        System.out.println("Connection-pending added");
+        pendingNewConnection.add(address);
     }
 
     @Override
     public void run() {
 
+        System.out.println("Launched manager");
+
         while (running) {
+
+            System.out.println("Before remove dead handlers");
 
 //            remove dead handlers
             handlers.stream().filter(h -> !h.isListening()).forEach(h -> handlers.remove(h));
+
+            System.out.println("After handler clear");
 
 //            add new server channels
             if (pendingNewServers.size() != 0) {
                 for (InetSocketAddress address : pendingNewServers) {
                     addServer(address);
+                    System.out.println("Server added");
                 }
                 pendingNewServers.clear();
+                System.out.println("After adding new servers");
             }
 
+
+            if (pendingNewConnection.size() != 0) {
+                for (InetSocketAddress address : pendingNewConnection) {
+                    System.out.println("Adding new connection " + address.toString());
+                    try {
+                        SocketChannel channel = SocketChannel.open(address);
+                        registerNewChannel(channel);
+                    } catch (IOException e) {
+                        logger.warn("Connection problem", e);
+                        System.out.println("Connection problem");
+                    }
+                    System.out.println("Connection added");
+                }
+                pendingNewConnection.clear();
+                System.out.println("After adding new connections");
+            }
+
+
             try {
+                System.out.println("Before select: " + Arrays.toString(inputSelector.keys().toArray()));
                 inputSelector.select();
             } catch (IOException e) {
                 logger.error("Selector select error", e);
@@ -112,6 +158,7 @@ public class ConnectionManager implements Runnable {
 
     private void accept(SelectionKey key) {
         try {
+            System.out.println("Accepting channel");
             Object attachment = key.attachment();
             ServerSocketChannel serverSocketChannel = (ServerSocketChannel) key.channel();
 
@@ -128,12 +175,16 @@ public class ConnectionManager implements Runnable {
     }
 
     private void registerNewChannel(SocketChannel channel) throws ClosedChannelException {
+        System.out.println("Registering new user");
         try {
             channel.configureBlocking(false);
         } catch (IOException e) {
             logger.warn("Something happened with new channel", e);
         }
-        channel.register(inputSelector, SelectionKey.OP_READ);
+        Participant participant = new Participant(-1, "");
+        handlers.get(0).addChannel(participant, channel);
+        users.put(u++, participant);
+        System.out.println("Map: " + users.toString());
     }
 
     public void setRunning(boolean running) {

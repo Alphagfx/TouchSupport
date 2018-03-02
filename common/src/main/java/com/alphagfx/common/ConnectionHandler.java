@@ -1,3 +1,6 @@
+package com.alphagfx.common;
+
+//import org.apache.commons.lang3.tuple.Pair;
 import org.apache.log4j.Logger;
 
 import java.io.IOException;
@@ -8,6 +11,7 @@ import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
 import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class ConnectionHandler implements Runnable {
 
@@ -15,9 +19,15 @@ public class ConnectionHandler implements Runnable {
 
     private Selector selector;
 
-    private boolean listening = true;
+    ConnectionManager manager;
 
-    private ConnectionHandler() {
+    private boolean listening = true;
+    private IParticipantProcessor processor;
+    private Queue<Pair<Participant, SocketChannel>> pendingChannels = new ConcurrentLinkedQueue<>();
+
+    private ConnectionHandler(ConnectionManager manager, IParticipantProcessor processor) {
+        this.processor = processor;
+        this.manager = manager;
         try {
             selector = Selector.open();
         } catch (IOException e) {
@@ -25,63 +35,59 @@ public class ConnectionHandler implements Runnable {
         }
     }
 
-    public static ConnectionHandler getHandler() {
-        return new ConnectionHandler();
+    public static ConnectionHandler getHandler(ConnectionManager manager, IParticipantProcessor processor) {
+        return new ConnectionHandler(manager, processor);
     }
 
-    public Chat.Participant addChannel(Chat.Participant participant) throws IOException {
-        SocketChannel channel = SocketChannel.open(participant.getAddress());
-        channel.configureBlocking(false);
-        SelectionKey key = channel.register(selector, SelectionKey.OP_READ);
-        key.attach(participant);
-        System.out.println("selector wakeup");
-        return participant;
+    public void addChannel(Participant participant, SocketChannel channel) {
+        pendingChannels.offer(Pair.of(participant, channel));
     }
 
+    private void registerChannels() throws IOException {
+        while (pendingChannels.size() != 0) {
+            Pair<Participant, SocketChannel> pair = pendingChannels.poll();
+            SocketChannel channel = pair.getValue();
+            channel.configureBlocking(false);
+            channel.register(selector, SelectionKey.OP_READ, pair.getKey());
+        }
+    }
 
 
     @Override
     public void run() {
         while (listening) {
+            System.out.print(" *");
             try {
                 Thread.sleep(1000);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
             try {
-                System.out.println("Before select");
-                selector.select();
+                registerChannels();
+
+
+                selector.selectNow();
 
                 Set<SelectionKey> selectionKeys = selector.selectedKeys();
 
-                System.out.println(selectionKeys.toString());
-
                 for (SelectionKey key : selectionKeys) {
 
-//                    if (false && key.attachment() == null) {
-//                        logger.warn("Null instead of Chat Participant");
-//                        System.out.println("null participant");
-//                        key.channel().close();
-//                        key.cancel();
-//                    }
-//
-//                    if (key.attachment() != null && !((Chat.Participant) key.attachment()).getMessagesToSend().isEmpty()) {
-//                        System.out.println("before interest ops");
-//                        key.interestOps(SelectionKey.OP_WRITE);
-//                        System.out.println("after interest ops");
-//                    }
+                    System.out.println(selectionKeys);
 
                     if (key.isValid()) {
-                        System.out.println("key is valid");
 
-                        if (key.isReadable()) {
+                        if (key.isConnectable()) {
+                            connect(key);
+                        } else if (key.isReadable()) {
                             read(key);
                         } else if (key.isWritable()) {
                             write(key);
                         }
                         // Register this channel again
                         Object attachment = key.attachment();
-                        key.channel().register(selector, SelectionKey.OP_READ, attachment);
+                        key.channel().register(selector, key.interestOps(), attachment);
+                    } else {
+                        manager.getUsers().remove(key.attachment());
                     }
                 }
 
@@ -92,12 +98,18 @@ public class ConnectionHandler implements Runnable {
 
     }
 
+    private void connect(SelectionKey key) {
+        System.out.println("Connecting");
+
+
+    }
+
 
     private void write(SelectionKey key) {
 
         System.out.println("Enter write");
 
-        Queue<Message> messages = ((Chat.Participant) key.attachment()).getMessagesToSend();
+        Queue<Message> messages = ((Participant) key.attachment()).getMessagesToSend();
 
         while (!messages.isEmpty()) {
 
@@ -162,7 +174,13 @@ public class ConnectionHandler implements Runnable {
         }
 
         if (message != null) {
-            ((Chat.Participant) key.attachment()).getMessagesToReceive().add(message);
+            Participant p = ((Participant) key.attachment());
+            p.getMessagesToReceive().add(message);
+            processor.addParticipant(p);
+        }
+
+        if (((Participant) key.attachment()).getMessagesToSend().size() != 0) {
+            key.interestOps(SelectionKey.OP_WRITE);
         }
 
         if (numRead == -1) {

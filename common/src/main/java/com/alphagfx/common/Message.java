@@ -1,3 +1,5 @@
+package com.alphagfx.common;
+
 public class Message {
 
     private int command;

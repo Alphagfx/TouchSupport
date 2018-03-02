@@ -1,3 +1,9 @@
+package com.alphagfx.client;
+
+import com.alphagfx.common.Chat;
+import com.alphagfx.common.ConnectionHandler;
+import com.alphagfx.common.ConnectionManager;
+import com.alphagfx.common.Message;
 import org.apache.log4j.Logger;
 
 import java.io.IOException;
@@ -41,7 +47,11 @@ public class Client implements Runnable {
 
     @Override
     public void run() {
-        runMe();
+        try {
+            runIt();
+        } catch (UnknownHostException e) {
+            e.printStackTrace();
+        }
     }
 
     private void runMe() {
@@ -62,9 +72,10 @@ public class Client implements Runnable {
             if (line.equals("/connect")) {
                 try {
                     logger.info("Connecting");
-                    Chat.Participant participant = chat.addParticipant(0, new InetSocketAddress(InetAddress.getLocalHost(), 8888));
+//                    com.alphagfx.common.Chat.com.alphagfx.common.Participant participant = chat.addParticipant(0, new InetSocketAddress(InetAddress.getLocalHost(), 8888));
                     System.out.println("added channel");
                     chat.sendMessageTo(0, new Message(0, "hello server"));
+                    throw new IOException();
                 } catch (IOException e) {
                     logger.warn("failed to open channel", e);
                 } catch (NullPointerException e) {
@@ -77,14 +88,38 @@ public class Client implements Runnable {
         connectionHandler.setListening(false);
     }
 
-    public ConnectionHandler launch() {
-        try {
-            InetSocketAddress address = new InetSocketAddress(InetAddress.getLocalHost(), 8888);
-            connectionHandler = ConnectionHandler.getHandler(address);
-            executorService.execute(connectionHandler);
-        } catch (UnknownHostException e) {
-            logger.warn("Unknown host", e);
-        }
-    }
+    private void runIt() throws UnknownHostException {
+        Scanner input = new Scanner(System.in);
 
+        ConnectionManager manager = null;
+
+        Chat chat = new Chat();
+
+        String line = "";
+
+        while (!line.equals("/exit")) {
+
+            line = input.nextLine();
+
+            if (line.equals("/connect")) {
+                logger.info("Establishing connection");
+                manager = new ConnectionManager(new ClientProcessor(), new InetSocketAddress(InetAddress.getLocalHost(), 8888));
+                manager.addConnectionHandler();
+                manager.openConnection(new InetSocketAddress(InetAddress.getLocalHost(), 8889));
+                executorService.execute(manager);
+            } else if (line.equals("/c chat")) {
+                System.out.println("/c chat typed in");
+                if (manager != null) {
+                    System.out.println(manager.getUsers());
+                    manager.getUsers().forEach((id, p) -> {
+                        chat.addParticipant(p);
+                    });
+                }
+            } else {
+                chat.sendEveryone(new Message(0, line));
+                System.out.println(new Message(0, line));
+            }
+        }
+
+    }
 }
