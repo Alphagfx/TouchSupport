@@ -1,14 +1,16 @@
 package com.alphagfx.common;
 
 //import org.apache.commons.lang3.tuple.Pair;
+
 import org.apache.log4j.Logger;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
-import java.nio.charset.StandardCharsets;
+import java.util.Iterator;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -55,6 +57,56 @@ public class ConnectionHandler implements Runnable {
 
     @Override
     public void run() {
+        run2();
+    }
+
+    public void run2() {
+        SocketChannel channel;
+        try {
+            selector = Selector.open();
+            channel = SocketChannel.open();
+            channel.configureBlocking(false);
+
+            channel.register(selector, SelectionKey.OP_CONNECT);
+            channel.connect(new InetSocketAddress("127.0.0.1", 8511));
+
+            while (!Thread.interrupted()) {
+
+                selector.select(1000);
+
+                Iterator<SelectionKey> keys = selector.selectedKeys().iterator();
+
+                while (keys.hasNext()) {
+                    SelectionKey key = keys.next();
+                    keys.remove();
+
+                    if (!key.isValid()) continue;
+
+                    if (key.isConnectable()) {
+                        System.out.println("I am connected to the server");
+                        connect(key);
+                    }
+                    if (key.isWritable()) {
+                        write(key);
+                    }
+                    if (key.isReadable()) {
+                        read(key);
+                    }
+                }
+            }
+        } catch (IOException e1) {
+            // TODO Auto-generated catch block
+            e1.printStackTrace();
+        } finally {
+            try {
+                selector.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public void run1() {
         while (listening) {
             System.out.print(" *");
             try {
@@ -65,6 +117,12 @@ public class ConnectionHandler implements Runnable {
             try {
                 registerChannels();
 
+                for (SelectionKey key : selector.keys()) {
+                    if (((Participant) key.attachment()).getMessagesToSend().size() != 0) {
+                        System.out.println("setting to WRITE");
+                        key.interestOps(SelectionKey.OP_WRITE);
+                    }
+                }
 
                 selector.selectNow();
 
@@ -105,11 +163,21 @@ public class ConnectionHandler implements Runnable {
     }
 
 
-    private void write(SelectionKey key) {
+    private void write(SelectionKey key) throws IOException {
 
         System.out.println("Enter write");
 
-        Queue<Message> messages = ((Participant) key.attachment()).getMessagesToSend();
+        Message message = ((Participant) key.attachment()).getMessagesToSend().poll();
+
+        if (message != null) {
+            System.out.println("Message to write: " + message);
+
+            SocketChannel channel = (SocketChannel) key.channel();
+
+            channel.write(ByteBuffer.wrap(message.toString().getBytes()));
+        }
+
+        /*
 
         while (!messages.isEmpty()) {
 
@@ -136,10 +204,36 @@ public class ConnectionHandler implements Runnable {
                 logger.warn("Write exception", e);
             }
         }
+        */
         key.interestOps(SelectionKey.OP_READ);
     }
 
     private void read(SelectionKey key) throws IOException {
+
+        SocketChannel channel = (SocketChannel) key.channel();
+        ByteBuffer readBuffer = ByteBuffer.allocate(1000);
+        readBuffer.clear();
+        int length;
+        try {
+            length = channel.read(readBuffer);
+        } catch (IOException e) {
+            System.out.println("Reading problem, closing connection");
+            key.cancel();
+            channel.close();
+            return;
+        }
+        if (length == -1) {
+            System.out.println("Nothing was read from server");
+            channel.close();
+            key.cancel();
+            return;
+        }
+        readBuffer.flip();
+        byte[] buff = new byte[1024];
+        readBuffer.get(buff, 0, length);
+        System.out.println("Server said: " + new String(buff));
+
+        /*
 
         System.out.println("Enter read");
         SocketChannel channel = (SocketChannel) key.channel();
@@ -151,8 +245,9 @@ public class ConnectionHandler implements Runnable {
         try {
             ByteBuffer buffer = ByteBuffer.allocate(Integer.BYTES * 2);
 
-
+            System.out.println("Reading: ");
             while (buffer.position() < buffer.limit()) {
+                System.out.print(" #");
                 numRead = channel.read(buffer);
             }
 
@@ -189,6 +284,8 @@ public class ConnectionHandler implements Runnable {
             key.cancel();
         }
 
+        */
+
     }
 
     public boolean isListening() {
@@ -200,3 +297,154 @@ public class ConnectionHandler implements Runnable {
     }
 
 }
+
+class Test {
+
+    String message = "TEST__MESSAGE";
+    private Selector selector;
+
+    public void run1() {
+        SocketChannel channel;
+        try {
+            selector = Selector.open();
+            channel = SocketChannel.open();
+            channel.configureBlocking(false);
+
+            channel.register(selector, SelectionKey.OP_CONNECT);
+            channel.connect(new InetSocketAddress("127.0.0.1", 8511));
+
+            while (!Thread.interrupted()) {
+
+                selector.select(1000);
+
+                Iterator<SelectionKey> keys = selector.selectedKeys().iterator();
+
+                while (keys.hasNext()) {
+                    SelectionKey key = keys.next();
+                    keys.remove();
+
+                    if (!key.isValid()) continue;
+
+                    if (key.isConnectable()) {
+                        System.out.println("I am connected to the server");
+                        connect1(key);
+                    }
+                    if (key.isWritable()) {
+                        write1(key);
+                    }
+                    if (key.isReadable()) {
+                        read1(key);
+                    }
+                }
+            }
+        } catch (IOException e1) {
+            // TODO Auto-generated catch block
+            e1.printStackTrace();
+        } finally {
+            close1();
+        }
+    }
+
+    private void close1() {
+        try {
+            selector.close();
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+    }
+
+    private void read1(SelectionKey key) throws IOException {
+        SocketChannel channel = (SocketChannel) key.channel();
+        ByteBuffer readBuffer = ByteBuffer.allocate(1000);
+        readBuffer.clear();
+        int length;
+        try {
+            length = channel.read(readBuffer);
+        } catch (IOException e) {
+            System.out.println("Reading problem, closing connection");
+            key.cancel();
+            channel.close();
+            return;
+        }
+        if (length == -1) {
+            System.out.println("Nothing was read from server");
+            channel.close();
+            key.cancel();
+            return;
+        }
+        readBuffer.flip();
+        byte[] buff = new byte[1024];
+        readBuffer.get(buff, 0, length);
+        System.out.println("Server said: " + new String(buff));
+    }
+
+    private void write1(SelectionKey key) throws IOException {
+        SocketChannel channel = (SocketChannel) key.channel();
+        channel.write(ByteBuffer.wrap(message.getBytes()));
+
+        // lets get ready to read.
+        key.interestOps(SelectionKey.OP_READ);
+    }
+
+    private void connect1(SelectionKey key) throws IOException {
+        SocketChannel channel = (SocketChannel) key.channel();
+        if (channel.isConnectionPending()) {
+            channel.finishConnect();
+        }
+        channel.configureBlocking(false);
+        channel.register(selector, SelectionKey.OP_WRITE);
+    }
+}
+
+class ConnectionHandler1 implements Runnable {
+
+    private Selector selector;
+
+    private Queue<Pair<Participant, SocketChannel>> pendingChannels = new ConcurrentLinkedQueue<>();
+
+    @Override
+    public void run() {
+
+        try {
+            selector = Selector.open();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        while (true) {
+            register();
+
+
+        }
+
+    }
+
+    public void register(Participant participant, SocketChannel channel) {
+        pendingChannels.offer(Pair.of(participant, channel));
+    }
+
+    private void register() {
+        for (Pair pair : pendingChannels) {
+            Participant participant = ((Participant) pair.getKey());
+            SocketChannel channel = ((SocketChannel) pair.getValue());
+            try {
+                channel.configureBlocking(false);
+                channel.register(selector, SelectionKey.OP_WRITE, participant);
+            } catch (IOException e) {
+//                TODO import logger
+                e.printStackTrace();
+            }
+        }
+        pendingChannels.clear();
+    }
+
+    private void read(SelectionKey key) {
+
+    }
+
+    private void write(SelectionKey key) {
+
+    }
+}
+

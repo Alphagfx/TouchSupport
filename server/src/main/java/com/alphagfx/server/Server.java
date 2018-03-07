@@ -17,7 +17,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class Server {
+public class Server implements Runnable {
 
     private static Logger logger = Logger.getLogger(Server.class.getName());
 
@@ -76,6 +76,11 @@ public class Server {
         while (true) {
             processor.process();
         }
+
+    }
+
+    @Override
+    public void run() {
 
     }
 }

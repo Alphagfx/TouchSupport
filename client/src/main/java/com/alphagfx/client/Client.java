@@ -1,19 +1,16 @@
 package com.alphagfx.client;
 
-import com.alphagfx.common.Chat;
-import com.alphagfx.common.ConnectionHandler;
-import com.alphagfx.common.ConnectionManager;
-import com.alphagfx.common.Message;
+import com.alphagfx.common.*;
 import org.apache.log4j.Logger;
 
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.net.UnknownHostException;
+import java.nio.channels.AsynchronousSocketChannel;
 import java.util.Scanner;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 
 public class Client implements Runnable {
@@ -47,11 +44,7 @@ public class Client implements Runnable {
 
     @Override
     public void run() {
-        try {
-            runIt();
-        } catch (UnknownHostException e) {
-            e.printStackTrace();
-        }
+        runAnother();
     }
 
     private void runMe() {
@@ -120,6 +113,47 @@ public class Client implements Runnable {
                 System.out.println(new Message(0, line));
             }
         }
+
+    }
+
+    // TODO: 07/03/18 replace run()
+    private void runAnother() {
+        Participant user = new Participant();
+
+        InetSocketAddress address = new InetSocketAddress("localhost", 8888);
+        ConnectionHandlerAsync handler = new ConnectionHandlerAsync(address, user);
+        executorService.execute(handler);
+
+        AsynchronousSocketChannel channel = null;
+        try {
+            channel = AsynchronousSocketChannel.open();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        SocketAddress serverAddr = new InetSocketAddress("localhost", 8989);
+        Future<Void> result = channel.connect(serverAddr);
+        try {
+            result.get();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            e.printStackTrace();
+        }
+        System.out.println("Connected");
+
+        user.client = channel;
+
+        Scanner input = new Scanner(System.in);
+        String line = "";
+
+        while (!line.equals("/exit")) {
+            line = input.nextLine();
+
+            user.writeMessage(line);
+        }
+
+        exit();
 
     }
 }
