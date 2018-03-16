@@ -1,11 +1,14 @@
 package com.alphagfx.common;
 
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 public abstract class ParticipantProcessor implements IParticipantProcessor {
 
-    protected Map<Integer, Participant> users = new ConcurrentHashMap<>();
+    protected Map<Integer, Participant> users;
+
+    protected ParticipantProcessor(Map<Integer, Participant> users) {
+        this.users = users;
+    }
 
     @Override
     public void addParticipant(Participant p) {

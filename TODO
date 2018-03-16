@@ -4,3 +4,7 @@ introduce message encoders-decoders
 unit testing
 database
 
+Server processor
+
+ReadWrite completed-failed shoud use process and act accordingly
+    for example remove participants, process messages, create chats?

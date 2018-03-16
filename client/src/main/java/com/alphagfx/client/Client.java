@@ -1,14 +1,13 @@
 package com.alphagfx.client;
 
 import com.alphagfx.common.*;
+import org.apache.commons.lang3.EnumUtils;
+import org.apache.commons.lang3.RandomUtils;
 import org.apache.log4j.Logger;
 
-import java.io.IOException;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
-import java.net.UnknownHostException;
-import java.nio.channels.AsynchronousSocketChannel;
+import java.util.Arrays;
 import java.util.Scanner;
 import java.util.concurrent.*;
 
@@ -18,7 +17,7 @@ public class Client implements Runnable {
     private static ExecutorService executorService = Executors.newCachedThreadPool();
     private static Logger logger = Logger.getLogger(Client.class.getName());
 
-    private ConnectionHandler connectionHandler;
+    private final int id = RandomUtils.nextInt(1, Integer.MAX_VALUE);
 
     public static void main(String[] args) {
 
@@ -47,113 +46,78 @@ public class Client implements Runnable {
         runAnother();
     }
 
-    private void runMe() {
-        Scanner input = new Scanner(System.in);
-
-        Chat chat = new Chat();
-
-
-        String line = "";
-        while (!line.equals("/exit")) {
-
-            if (chat.readEveryone() == null) {
-                System.out.println("input is null");
-            }
-
-            line = input.nextLine();
-
-            if (line.equals("/connect")) {
-                try {
-                    logger.info("Connecting");
-//                    com.alphagfx.common.Chat.com.alphagfx.common.Participant participant = chat.addParticipant(0, new InetSocketAddress(InetAddress.getLocalHost(), 8888));
-                    System.out.println("added channel");
-                    chat.sendMessageTo(0, new Message(0, "hello server"));
-                    throw new IOException();
-                } catch (IOException e) {
-                    logger.warn("failed to open channel", e);
-                } catch (NullPointerException e) {
-                    logger.error("Null pointer", e);
-                }
-            } else {
-                chat.sendMessageTo(0, new Message(0, line));
-            }
-        }
-        connectionHandler.setListening(false);
-    }
-
-    private void runIt() throws UnknownHostException {
-        Scanner input = new Scanner(System.in);
-
-        ConnectionManager manager = null;
-
-        Chat chat = new Chat();
-
-        String line = "";
-
-        while (!line.equals("/exit")) {
-
-            line = input.nextLine();
-
-            if (line.equals("/connect")) {
-                logger.info("Establishing connection");
-                manager = new ConnectionManager(new ClientProcessor(), new InetSocketAddress(InetAddress.getLocalHost(), 8888));
-                manager.addConnectionHandler();
-                manager.openConnection(new InetSocketAddress(InetAddress.getLocalHost(), 8889));
-                executorService.execute(manager);
-            } else if (line.equals("/c chat")) {
-                System.out.println("/c chat typed in");
-                if (manager != null) {
-                    System.out.println(manager.getUsers());
-                    manager.getUsers().forEach((id, p) -> {
-                        chat.addParticipant(p);
-                    });
-                }
-            } else {
-                chat.sendEveryone(new Message(0, line));
-                System.out.println(new Message(0, line));
-            }
-        }
-
-    }
-
     // TODO: 07/03/18 replace run()
     private void runAnother() {
         Participant user = new Participant();
 
-        InetSocketAddress address = new InetSocketAddress("localhost", 8888);
-        ConnectionHandlerAsync handler = new ConnectionHandlerAsync(address, user);
+        ConcurrentMap<Integer, Participant> users = new ConcurrentHashMap<>();
+
+        users.put(user.getId(), user);
+
+        InetSocketAddress address = new InetSocketAddress("localhost", Const.CLIENT_PORT);
+        ConnectionHandlerAsync handler = new ConnectionHandlerAsync(address, users, new IProcessor() {
+            @Override
+            public void process(Message message, Participant user) {
+                System.out.println("" + user + message);
+            }
+        });
         executorService.execute(handler);
 
-        AsynchronousSocketChannel channel = null;
-        try {
-            channel = AsynchronousSocketChannel.open();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        SocketAddress serverAddr = new InetSocketAddress("localhost", Const.SERVER_PORT);
 
-        SocketAddress serverAddr = new InetSocketAddress("localhost", 8989);
-        Future<Void> result = channel.connect(serverAddr);
-        try {
-            result.get();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        } catch (ExecutionException e) {
-            e.printStackTrace();
-        }
-        System.out.println("Connected");
-
-        user.client = channel;
+        user.client = handler.connect(serverAddr);
 
         Scanner input = new Scanner(System.in);
-        String line = "";
+        String line;
 
-        while (!line.equals("/exit")) {
+        boolean active = true;
+        while (active) {
+
             line = input.nextLine();
 
-            user.writeMessage(line);
+            String c = Arrays.stream(line.split("\\W")).filter(s -> EnumUtils.getEnum(Commands.class, s) != null).findFirst().orElse(Commands.DEFAULT.name());
+
+            System.out.println(c);
+            Commands command = Commands.valueOf(c);
+
+            switch (command) {
+                case register: {
+                    user.writeMessage(new Message(1, 0, "" + id + " " + line.substring(9)));
+                    break;
+                }
+                case LOGIN: {
+
+                    break;
+                }
+                case EXIT: {
+                    active = false;
+                    break;
+                }
+                case DEFAULT: {
+                    user.writeMessage(new Message(-1, 0, line));
+                }
+            }
         }
 
+        handler.exit();
         exit();
 
+    }
+
+    enum Commands {
+        register("/register"),
+        LOGIN("/login"),
+        EXIT("/exit"),
+        DEFAULT("");
+
+        private String string;
+
+        Commands(String s) {
+            string = s;
+        }
+
+        public String value() {
+            return string;
+        }
     }
 }

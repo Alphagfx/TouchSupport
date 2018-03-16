@@ -1,5 +1,7 @@
 package com.alphagfx.server;
 
+import com.alphagfx.common.Const;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
@@ -14,7 +16,7 @@ public class TestServer {
     public static void main(String[] args) throws Exception {
         AsynchronousServerSocketChannel server = AsynchronousServerSocketChannel.open();
         String host = "localhost";
-        int port = 8989;
+        int port = Const.SERVER_PORT;
         InetSocketAddress sAddr = new InetSocketAddress(host, port);
         server.bind(sAddr);
         System.out.format("Server is listening at %s%n", sAddr);

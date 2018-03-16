@@ -1,19 +1,12 @@
 package com.alphagfx.server;
 
-import com.alphagfx.common.Chat;
-import com.alphagfx.common.ConnectionManager;
-import com.alphagfx.common.Message;
+import com.alphagfx.common.*;
 import org.apache.log4j.Logger;
 
 import java.io.IOException;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.net.UnknownHostException;
-import java.nio.channels.ServerSocketChannel;
-import java.nio.channels.SocketChannel;
-import java.sql.Timestamp;
-import java.util.Calendar;
-import java.util.concurrent.Executor;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -21,66 +14,42 @@ public class Server implements Runnable {
 
     private static Logger logger = Logger.getLogger(Server.class.getName());
 
+    private ExecutorService executor;
 
-    public static void main1(String[] args) {
-//
-//        com.alphagfx.common.ConnectionHandler connectionHandler = new com.alphagfx.common.ConnectionHandler();
-
-        try (ServerSocketChannel serverSocketChannel = ServerSocketChannel.open()) {
-
-            serverSocketChannel.bind(new InetSocketAddress(InetAddress.getLocalHost(), 8888));
-            serverSocketChannel.configureBlocking(false);
-            int i = 0;
-            ExecutorService executorService = Executors.newFixedThreadPool(10);
-//            executorService.execute(connectionHandler);
-
-            Chat chat = new Chat();
-
-            while (true) {
-                SocketChannel client = serverSocketChannel.accept();
-                if (client != null) {
-                    System.out.println("hello client");
-//                    connectionHandler.addChannelServer(chat.addParticipant(i++, client.getLocalAddress()), client);
-                    System.out.println("Spawning client " + i++);
-                }
-
-                chat.readEveryone().forEach(System.out::println);
-                chat.checkParticipants().forEach((System.out::println));
-                chat.sendEveryone(new Message(0, "Timestamp from server: " + new Timestamp(Calendar.getInstance().getTime().getTime()).toString()));
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    logger.warn("sleep interrupt");
-                }
-            }
-        } catch (IOException e) {
-            logger.error("Server problem : ", e);
-        }
+    public Server(ExecutorService executor) {
+        this.executor = executor;
     }
 
-    public static void main(String[] args) throws UnknownHostException {
-
-        Executor executor = Executors.newCachedThreadPool();
-
-        ServerProcessor processor = new ServerProcessor();
-
-        ConnectionManager manager = new ConnectionManager(processor, new InetSocketAddress(InetAddress.getLocalHost(), 8889));
-
-        manager.addInputConnectionListener(new InetSocketAddress(InetAddress.getLocalHost(), 8890));
-
-        manager.addConnectionHandler();
-
-        executor.execute(manager);
-
-
-        while (true) {
-            processor.process();
-        }
-
+    public static void main(String[] args) throws InterruptedException {
+        new Server(Executors.newSingleThreadExecutor()).run();
     }
 
     @Override
     public void run() {
+
+        ConcurrentMap<Integer, Participant> users = new ConcurrentHashMap<>();
+
+        InetSocketAddress address = new InetSocketAddress("localhost", Const.SERVER_PORT);
+
+        ServerProcessor processor = new ServerProcessor(users, new IProcessor() {
+            @Override
+            public void process(Message message, Participant user) {
+                System.out.println("" + user + " | " + message);
+            }
+        });
+
+        ConnectionHandlerAsync handler = new ConnectionHandlerAsync(address, users, processor);
+
+        handler.launchServer();
+
+        executor.execute(handler);
+
+        // TODO: 11/03/18 Replace with smth more appropriate to this situation
+        try {
+            System.in.read();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
     }
 }
