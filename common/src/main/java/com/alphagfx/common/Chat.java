@@ -19,8 +19,8 @@ public class Chat {
     }
 
     private Participant addParticipant(int id, SocketAddress address) {
-        Participant participant = new Participant(id, "member " + id);
-        participant.setAddress(address);
+//        Participant participant = new Participant(id, "member " + id);
+        Participant participant = Participant.create(id, "member " + id);
         participants.put(id, participant);
         return participant;
     }

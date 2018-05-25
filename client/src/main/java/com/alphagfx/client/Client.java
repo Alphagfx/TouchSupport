@@ -1,13 +1,17 @@
 package com.alphagfx.client;
 
-import com.alphagfx.common.*;
+import com.alphagfx.common.Const;
+import com.alphagfx.common.Message;
+import com.alphagfx.common.Participant;
+import com.alphagfx.common.connection.Attachment;
+import com.alphagfx.common.connection.ConnectionHandlerAsync;
 import org.apache.commons.lang3.EnumUtils;
-import org.apache.commons.lang3.RandomUtils;
 import org.apache.log4j.Logger;
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.Scanner;
 import java.util.concurrent.*;
 
@@ -17,7 +21,7 @@ public class Client implements Runnable {
     private static ExecutorService executorService = Executors.newCachedThreadPool();
     private static Logger logger = Logger.getLogger(Client.class.getName());
 
-    private final int id = RandomUtils.nextInt(1, Integer.MAX_VALUE);
+    private int id = 0;
 
     public static void main(String[] args) {
 
@@ -48,24 +52,22 @@ public class Client implements Runnable {
 
     // TODO: 07/03/18 replace run()
     private void runAnother() {
-        Participant user = new Participant();
+        Participant user = Participant.create(-3, "new_client");
 
         ConcurrentMap<Integer, Participant> users = new ConcurrentHashMap<>();
 
         users.put(user.getId(), user);
 
         InetSocketAddress address = new InetSocketAddress("localhost", Const.CLIENT_PORT);
-        ConnectionHandlerAsync handler = new ConnectionHandlerAsync(address, users, new IProcessor() {
-            @Override
-            public void process(Message message, Participant user) {
-                System.out.println("" + user + message);
-            }
-        });
+        ConnectionHandlerAsync handler = new ConnectionHandlerAsync(address, users, (message, user1) -> System.out.println("" + user1 + message));
+
         executorService.execute(handler);
 
         SocketAddress serverAddr = new InetSocketAddress("localhost", Const.SERVER_PORT);
 
-        user.client = handler.connect(serverAddr);
+        Attachment attachment = new Attachment.Builder().setUser(user).setClient(handler.connect(serverAddr)).build();
+
+//        user.getAttachment().client = handler.connect(serverAddr);
 
         Scanner input = new Scanner(System.in);
         String line;
@@ -75,21 +77,35 @@ public class Client implements Runnable {
 
             line = input.nextLine();
 
-            String c = Arrays.stream(line.split("\\W")).filter(s -> EnumUtils.getEnum(Commands.class, s) != null).findFirst().orElse(Commands.DEFAULT.name());
+            String[] strings = line.split("\\W");
+            System.out.println(Arrays.toString(strings));
 
+            String[] strings1 = line.split(" ");
+            System.out.println(Arrays.toString(strings1));
+
+
+            String c = Arrays.stream(line.split("\\W")).filter(s -> ("/" + EnumUtils.getEnum(Commands.class, s)).equals("/" + s)).findFirst().orElse(Commands.DEFAULT.name());
             System.out.println(c);
+            System.out.println(c.length());
+            String text = line.substring(Objects.equals(c, Commands.DEFAULT.name()) ? 0 : c.length() + 2);
+
             Commands command = Commands.valueOf(c);
 
             switch (command) {
-                case register: {
-                    user.writeMessage(new Message(1, 0, "" + id + " " + line.substring(9)));
-                    break;
-                }
-                case LOGIN: {
+                // TODO: 17/03/18 parse config file for servers
+                case connect: {
 
                     break;
                 }
-                case EXIT: {
+                case register: {
+                    user.writeMessage(new Message(1, 0, "" + id + ":" + "" + text));
+                    break;
+                }
+                case login: {
+                    user.writeMessage(new Message(2, 0, text));
+                    break;
+                }
+                case exit: {
                     active = false;
                     break;
                 }
@@ -105,19 +121,10 @@ public class Client implements Runnable {
     }
 
     enum Commands {
-        register("/register"),
-        LOGIN("/login"),
-        EXIT("/exit"),
-        DEFAULT("");
-
-        private String string;
-
-        Commands(String s) {
-            string = s;
-        }
-
-        public String value() {
-            return string;
-        }
+        connect,
+        register,
+        login,
+        exit,
+        DEFAULT
     }
 }

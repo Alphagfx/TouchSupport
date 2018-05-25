@@ -14,4 +14,8 @@ public class Const {
 
     public static int CLIENT_PORT = 8888;
     public static int SERVER_PORT = 8889;
+
+    private Const() {
+        throw new AssertionError();
+    }
 }

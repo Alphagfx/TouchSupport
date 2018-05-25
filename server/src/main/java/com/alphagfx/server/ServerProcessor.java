@@ -10,14 +10,17 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class ServerProcessor implements IProcessor {
 
+    private Map<Integer, Participant> registeredUsers;
+
     // int should be id
     private final Map<Integer, Participant> users;
     private Map<Boolean, Participant> agents = new ConcurrentHashMap<>();
 
     private IProcessor specialProcessor;
 
-    public ServerProcessor(Map<Integer, Participant> users, IProcessor processor) {
+    public ServerProcessor(Map<Integer, Participant> users, Map<Integer, Participant> registeredUsers, IProcessor processor) {
         this.users = users;
+        this.registeredUsers = registeredUsers;
         specialProcessor = processor != null ? processor : (message, user) -> {
 
         };
@@ -37,26 +40,54 @@ public class ServerProcessor implements IProcessor {
                 break;
             }
 
-            // register user
+            // register user (id + role + name + password?)
             case 1: {
-                String[] s = message.getMessage().split(" ");
+                String[] s = message.getMessage().split(":");
                 System.out.println(Arrays.toString(s));
                 try {
+                    /*
                     user.setId(Integer.valueOf(s[0]));
-                    user.setName(s[2]);
                     if (s[1].equals("agent")) {
                         agents.put(false, user);
                     }
+                    user.setName(s[2]);
+                    user.setPassword(s[3]);
+                    */
                 } catch (RuntimeException e) {
                     // TODO: 11/03/18 logger
                     System.err.println("Wrong data format");
                 }
-                users.put(user.getId(), user);
+                registeredUsers.put(user.getId(), user);
+                break;
+            }
+
+            //login user (id + password)
+            case 2: {
+                String[] s = message.getMessage().split(" ");
+
+                if (s.length != 2) {
+                    user.writeMessage("Wrong data format");
+                    return;
+                }
+
+                int id;
+                try {
+                    id = Integer.valueOf(s[0]);
+                } catch (NumberFormatException e) {
+                    user.writeMessage("Wrong id");
+                    return;
+                }
+
+                Participant registeredUser = registeredUsers.get(id);
+                if (registeredUser != null && registeredUser.password.equals(s[1])) {
+//                    user.getAttachment().client = registeredUser.getAttachment().client;
+                    users.remove(user);
+                }
                 break;
             }
 
             // message to the partner
-            case 2: {
+            case 3: {
                 Participant partner = users.get(message.getAddress());
                 if (partner != null) {
                     partner.writeMessage(message);
@@ -65,7 +96,7 @@ public class ServerProcessor implements IProcessor {
             }
 
             // get free agent
-            case 3: {
+            case 4: {
                 user.writeMessage(new Message(3, getFreeAgent().getId(), ""));
             }
         }

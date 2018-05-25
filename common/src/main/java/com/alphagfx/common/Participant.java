@@ -1,11 +1,7 @@
 package com.alphagfx.common;
 
-import java.net.SocketAddress;
-import java.nio.ByteBuffer;
-import java.nio.channels.AsynchronousServerSocketChannel;
-import java.nio.channels.AsynchronousSocketChannel;
-import java.nio.channels.WritePendingException;
-import java.nio.charset.Charset;
+import com.alphagfx.common.connection.Attachment;
+
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -16,85 +12,70 @@ public class Participant {
     private final Queue<Message> messagesToSend = new ConcurrentLinkedQueue<>();
     private final Queue<Message> messagesToReceive = new ConcurrentLinkedQueue<>();
 
-    private String name;
-    private SocketAddress address;
-    private int id;
+    private final String name;
+    private final int id;
+    // TODO: 23/03/18 security knows my name
+    public String password;
+    private Attachment attachment = null;
 
-    public ByteBuffer buffer = ByteBuffer.allocate(Const.READ_BUFFER_SIZE);
+    private Participant(int id, String name) {
+        this.id = id;
+        this.name = name;
+        countCreated++;
+    }
 
-    public AsynchronousSocketChannel client;
-    AsynchronousServerSocketChannel server;
+    private Participant() {
+        this.id = countCreated++;
+        this.name = "Member #" + id;
+    }
 
+    public static Participant create(int id, String name) {
+        return new Participant(id, name);
+    }
+
+    public boolean writeMessage(String message) {
+        return writeMessage(new Message(-1, 0, message));
+    }
+
+    public boolean writeMessage(Message message) {
+        boolean messageSent = attachment.writeMessage(message);
+        if (!messageSent) {
+            messagesToSend.offer(message);
+        }
+        return messageSent;
+    }
+
+    public Attachment getAttachment() {
+        return attachment;
+    }
+
+    public void setAttachment(Attachment attachment) {
+        this.attachment = attachment;
+    }
 
     public int getId() {
         return id;
-    }
-
-    public void setId(int id) {
-        this.id = id;
     }
 
     public String getName() {
         return name;
     }
 
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public SocketAddress getAddress() {
-        return address;
-    }
-
-    public void setAddress(SocketAddress address) {
-        this.address = address;
-    }
-
     public Queue<Message> getMessagesToReceive() {
         return messagesToReceive;
     }
-
     public Queue<Message> getMessagesToSend() {
         return messagesToSend;
     }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
 
     @Override
     public String toString() {
         return "[ id = " + id + " , name = " + name + " ]";
     }
-
-    boolean online;
-    private ConnectionHandlerAsync.WriteHandler writeHandler = ConnectionHandlerAsync.WriteHandler.getHandler();
-
-    Participant(int id, String name) {
-        this.id = id;
-        this.name = name;
-        countCreated++;
-    }
-
-    public Participant() {
-        this.id = countCreated++;
-        this.name = "Member #" + id;
-    }
-
-    public void writeMessage(Message message) {
-
-        // encoding message
-        Charset charset = Charset.forName(Const.CHARSET);
-        byte[] bytes = message.getMessage().getBytes(charset);
-
-        ByteBuffer buffer = ByteBuffer.allocate(Const.READ_BUFFER_SIZE);
-
-        // putting command to execute for server, id of receiver and message itself
-        buffer.clear();
-        buffer.putInt(message.getCommand());
-        buffer.putInt(id);
-        buffer.put(bytes);
-        buffer.flip();
-        try {
-            client.write(buffer, this, writeHandler);
-        } catch (WritePendingException e) {
-            messagesToSend.offer(message);
-        }
-    }
 }
+
