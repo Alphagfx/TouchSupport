@@ -18,7 +18,7 @@ class WriteHandler implements CompletionHandler<Integer, Attachment> {
 
     @Override
     public void completed(Integer integer, Attachment attachment) {
-        Participant user = attachment.getUser();
+        Participant user = Participant.NULL;
         if (user == null) {
             System.out.println("user is null");
         }

@@ -3,6 +3,9 @@ package com.alphagfx.common.connection;
 import com.alphagfx.common.Message;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.Mockito;
+
+import java.nio.channels.AsynchronousSocketChannel;
 
 public class AttachmentTest {
 
@@ -10,18 +13,20 @@ public class AttachmentTest {
 
     @Before
     public void create() {
-        attach = new Attachment.Builder().build();
+        attach = null;
     }
 
     @Test
     public void read() {
-        attach.readChannelWithHandler();
+
+        Mockito.mock(AsynchronousSocketChannel.class);
+
+        attach.read();
     }
+
 
     @Test
     public void write() {
         Message message = new Message(0, 0, "test");
-        attach.writeMessage(message);
-
     }
 }

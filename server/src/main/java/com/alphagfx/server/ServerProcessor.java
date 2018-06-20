@@ -1,24 +1,26 @@
 package com.alphagfx.server;
 
-import com.alphagfx.common.IProcessor;
 import com.alphagfx.common.Message;
 import com.alphagfx.common.Participant;
+import com.alphagfx.common.Processor;
+import com.alphagfx.common.UserDatabase;
 
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class ServerProcessor implements IProcessor {
+public class ServerProcessor implements Processor {
 
-    private Map<Integer, Participant> registeredUsers;
+    private UserDatabase registeredUsers;
+    private UserDatabase users;
 
-    // int should be id
-    private final Map<Integer, Participant> users;
     private Map<Boolean, Participant> agents = new ConcurrentHashMap<>();
 
-    private IProcessor specialProcessor;
+    private Processor specialProcessor;
 
-    public ServerProcessor(Map<Integer, Participant> users, Map<Integer, Participant> registeredUsers, IProcessor processor) {
+    private int id = 0;
+
+    public ServerProcessor(UserDatabase users, UserDatabase registeredUsers, Processor processor) {
         this.users = users;
         this.registeredUsers = registeredUsers;
         specialProcessor = processor != null ? processor : (message, user) -> {
@@ -57,7 +59,7 @@ public class ServerProcessor implements IProcessor {
                     // TODO: 11/03/18 logger
                     System.err.println("Wrong data format");
                 }
-                registeredUsers.put(user.getId(), user);
+                registeredUsers.put(id++, user);
                 break;
             }
 
@@ -79,10 +81,10 @@ public class ServerProcessor implements IProcessor {
                 }
 
                 Participant registeredUser = registeredUsers.get(id);
-                if (registeredUser != null && registeredUser.password.equals(s[1])) {
+//                if (registeredUser != null && registeredUser.password.equals(s[1])) {
 //                    user.getAttachment().client = registeredUser.getAttachment().client;
-                    users.remove(user);
-                }
+//                    users.remove(user.getId());
+//                }
                 break;
             }
 

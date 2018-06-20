@@ -1,9 +1,8 @@
 package com.alphagfx.client;
 
-import com.alphagfx.common.Const;
-import com.alphagfx.common.Message;
-import com.alphagfx.common.Participant;
+import com.alphagfx.common.*;
 import com.alphagfx.common.connection.Attachment;
+import com.alphagfx.common.connection.AttachmentImpl;
 import com.alphagfx.common.connection.ConnectionHandlerAsync;
 import org.apache.commons.lang3.EnumUtils;
 import org.apache.log4j.Logger;
@@ -12,8 +11,11 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.Random;
 import java.util.Scanner;
-import java.util.concurrent.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 
 public class Client implements Runnable {
@@ -21,7 +23,7 @@ public class Client implements Runnable {
     private static ExecutorService executorService = Executors.newCachedThreadPool();
     private static Logger logger = Logger.getLogger(Client.class.getName());
 
-    private int id = 0;
+    private int id = new Random().nextInt();
 
     public static void main(String[] args) {
 
@@ -29,7 +31,7 @@ public class Client implements Runnable {
 
     }
 
-    public static void exit() {
+    private static void exit() {
         try {
             System.out.println("attempt to shutdown executor");
             executorService.shutdown();
@@ -54,18 +56,20 @@ public class Client implements Runnable {
     private void runAnother() {
         Participant user = Participant.create(-3, "new_client");
 
-        ConcurrentMap<Integer, Participant> users = new ConcurrentHashMap<>();
+        UserDatabase users = MapDatabase.create();
 
-        users.put(user.getId(), user);
+        users.put(-3, user);
 
         InetSocketAddress address = new InetSocketAddress("localhost", Const.CLIENT_PORT);
-        ConnectionHandlerAsync handler = new ConnectionHandlerAsync(address, users, (message, user1) -> System.out.println("" + user1 + message));
+        UserDatabase userDB = MapDatabase.create();
+        ConnectionHandlerAsync handler = ConnectionHandlerAsync.create(address, users, userDB, (message, user1) -> System.out.println("" + user1 + message));
 
-        executorService.execute(handler);
+//        executorService.execute(handler);
 
         SocketAddress serverAddr = new InetSocketAddress("localhost", Const.SERVER_PORT);
 
-        Attachment attachment = new Attachment.Builder().setUser(user).setClient(handler.connect(serverAddr)).build();
+//        Attachment attachment = new AttachmentImpl.Builder().setUser(user).setClient(handler.connect(serverAddr)).build();
+        Attachment attachment = AttachmentImpl.create(handler.connect(serverAddr), null, null);
 
 //        user.getAttachment().client = handler.connect(serverAddr);
 

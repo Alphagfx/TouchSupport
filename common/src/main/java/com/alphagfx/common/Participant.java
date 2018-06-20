@@ -2,31 +2,23 @@ package com.alphagfx.common;
 
 import com.alphagfx.common.connection.Attachment;
 
+import java.nio.ByteBuffer;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class Participant {
+    public static final Participant NULL = new Participant(-1, "NO_USER");
 
-    private static int countCreated = 0;
+    private final UserData data = new UserData();
+
+    private Attachment attachment = null;
 
     private final Queue<Message> messagesToSend = new ConcurrentLinkedQueue<>();
     private final Queue<Message> messagesToReceive = new ConcurrentLinkedQueue<>();
 
-    private final String name;
-    private final int id;
-    // TODO: 23/03/18 security knows my name
-    public String password;
-    private Attachment attachment = null;
-
     private Participant(int id, String name) {
-        this.id = id;
-        this.name = name;
-        countCreated++;
-    }
-
-    private Participant() {
-        this.id = countCreated++;
-        this.name = "Member #" + id;
+        this.data.id = id;
+        this.data.name = name;
     }
 
     public static Participant create(int id, String name) {
@@ -38,7 +30,8 @@ public class Participant {
     }
 
     public boolean writeMessage(Message message) {
-        boolean messageSent = attachment.writeMessage(message);
+        ByteBuffer buffer = new StringCodec().encode(message).poll();
+        boolean messageSent = attachment.write(buffer);
         if (!messageSent) {
             messagesToSend.offer(message);
         }
@@ -54,11 +47,15 @@ public class Participant {
     }
 
     public int getId() {
-        return id;
+        return getData().id;
     }
 
     public String getName() {
-        return name;
+        return getData().name;
+    }
+
+    public UserData getData() {
+        return data;
     }
 
     public Queue<Message> getMessagesToReceive() {
@@ -68,14 +65,10 @@ public class Participant {
         return messagesToSend;
     }
 
-    public void setPassword(String password) {
-        this.password = password;
-    }
-
 
     @Override
     public String toString() {
-        return "[ id = " + id + " , name = " + name + " ]";
+        return "[id =" + getId() + ", name =" + getName() + "]";
     }
 }
 

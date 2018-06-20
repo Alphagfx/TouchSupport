@@ -14,7 +14,7 @@ public class ConnectionHandl implements CompletionHandler<AsynchronousSocketChan
 
     @Override
     public void completed(AsynchronousSocketChannel client, AsynchronousServerSocketChannel server) {
-        handlerAsync.newUserConnected(client, server);
+        handlerAsync.newUserConnected(client);
 
         //  using this one instance for handling input connections
         server.accept(server, this);

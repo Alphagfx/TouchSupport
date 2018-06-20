@@ -1,8 +1,10 @@
 package com.alphagfx.common.connection;
 
 import com.alphagfx.common.Const;
-import com.alphagfx.common.IProcessor;
 import com.alphagfx.common.Participant;
+import com.alphagfx.common.Processor;
+import com.alphagfx.common.UserDatabase;
+import org.apache.log4j.Logger;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -11,59 +13,62 @@ import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousChannelGroup;
 import java.nio.channels.AsynchronousServerSocketChannel;
 import java.nio.channels.AsynchronousSocketChannel;
-import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.*;
 
-public class ConnectionHandlerAsync implements Runnable {
+public class ConnectionHandlerAsync {
+
+    private Logger logger = Logger.getLogger(ConnectionHandlerAsync.class);
 
     private final InetSocketAddress address;
     private AsynchronousChannelGroup group;
 
-    private Map<Integer, Participant> usersConnected;
+    private UserDatabase userDB;
+    private UserDatabase connectedUsers;
 
-    private IProcessor processor;
+    private Processor processor;
 
-    public ConnectionHandlerAsync(InetSocketAddress address, Map<Integer, Participant> usersConnected, IProcessor processor) {
+    private ConnectionHandlerAsync(InetSocketAddress address, UserDatabase connectedUsers, UserDatabase userDB,
+                                   Processor processor) {
         this.address = address;
-        this.usersConnected = usersConnected;
-        this.processor = Objects.nonNull(processor) ? processor : (message, user) -> {
-        };
+        this.connectedUsers = connectedUsers;
+        this.userDB = userDB;
+        this.processor = processor;
+
+        initialize();
+    }
+
+    public static ConnectionHandlerAsync create(InetSocketAddress address, UserDatabase connectedUsers,
+                                                UserDatabase userDB, Processor processor) {
+        return new ConnectionHandlerAsync(address, connectedUsers, userDB, processor);
+    }
+
+    private void initialize() {
         try {
             group = AsynchronousChannelGroup.withFixedThreadPool(Const.THREADS_PER_GROUP, Executors.defaultThreadFactory());
         } catch (IOException e) {
-            // TODO: 02/03/18 replace with logger
-            e.printStackTrace();
+            logger.error("AsyncChannelGroup creation error", e);
         }
     }
 
-    @Override
-    public void run() {
-
-    }
-
-    // TODO: 07/03/18 probably merge with client executor service? proper logging
+    // TODO: 07/03/18 probably merge with client executor service?
+    // stole it
     public void exit() {
         try {
-            System.out.println("attempt to shutdown executor");
+            System.out.println("Attempt to shutdown executor");
             group.shutdown();
             group.awaitTermination(5, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
-//            logger.info("task interrupted", e);
-            System.out.println("group shutdown interrupted");
+            logger.info("Task interrupted", e);
         } finally {
             if (!group.isTerminated()) {
-                System.out.println("cancel non-finished tasks");
-//                logger.warn("cancel non-finished tasks");
+                logger.warn("Cancel non-finished tasks");
             }
             try {
                 group.shutdownNow();
             } catch (IOException e) {
-                System.out.println("Something crazy went wrong");
-                e.printStackTrace();
+                logger.error("Something crazy went wrong", e);
             }
-            System.out.println("group shutdown finished");
-//            logger.info("shutdown finished");
+            logger.info("Group shutdown finished");
         }
     }
 
@@ -71,12 +76,11 @@ public class ConnectionHandlerAsync implements Runnable {
         try {
             AsynchronousServerSocketChannel server = AsynchronousServerSocketChannel.open(group);
             server.bind(address);
-            System.out.format("Server is listening at %s%n", address);
-
             server.accept(server, new ConnectionHandl(this));
+
+            logger.info("Server is listening at " + address);
         } catch (IOException e) {
-            // TODO: 03/03/18 logger
-            e.printStackTrace();
+            logger.error("Fail while launching server", e);
         }
     }
 
@@ -88,47 +92,48 @@ public class ConnectionHandlerAsync implements Runnable {
             channel = AsynchronousSocketChannel.open(group);
             Future<Void> result = channel.connect(address);
 
-            // TODO: 07/03/18 replace catch clauses with loggers/messages
             try {
                 result.get(Const.CONNECTION_TIMEOUT, TimeUnit.SECONDS);
-                System.out.println("Connected");
+                logger.info("Connected");
             } catch (InterruptedException e) {
-                System.err.println("Connection interrupted");
-                e.printStackTrace();
+                logger.warn("Connection interrupted", e);
             } catch (ExecutionException e) {
-                e.printStackTrace();
+                logger.error("Problem while connecting", e);
             } catch (TimeoutException e) {
-                System.err.println("Connection is unreachable");
-                e.printStackTrace();
+                logger.warn("Connection is unreachable", e);
             }
         } catch (IOException e) {
-            // TODO: 07/03/18 logger
-            System.err.println("AsyncChannel open failure");
-            e.printStackTrace();
+            logger.warn("AsyncChannel open failure", e);
         }
 
         return channel;
     }
 
-    void newUserConnected(AsynchronousSocketChannel client, AsynchronousServerSocketChannel server) {
+    void newUserConnected(AsynchronousSocketChannel client) {
         try {
-            System.out.format("Accepted a connection from %s%n", client.getRemoteAddress());
-
-            ReadHandler readHandler = ReadHandler.create(processor);
-            ByteBuffer buffer = ByteBuffer.allocate(Const.READ_BUFFER_SIZE);
+            logger.info("Accepted a connection from " + client.getRemoteAddress());
 
             // TODO: 24/05/18 Make proper read of user properties
             Participant newUser = Participant.create(-1, "new");
 
-            Attachment attachment = new Attachment.Builder().setClient(client).setServer(server).setBuffer(buffer).
-                    setRead(readHandler).setWrite(WriteHandler.getHandler()).setUser(newUser).build();
+            ReadHandler readHandler = ReadHandler.create(processor);
+            ByteBuffer buffer = ByteBuffer.allocate(Const.READ_BUFFER_SIZE);
 
-            usersConnected.put(newUser.getId(), newUser);
+//            AttachmentImpl attachment = new AttachmentImpl.Builder().setClient(client).setBuffer(buffer).
+//                    setRead(readHandler).setWrite(WriteHandler.getHandler()).setUser(newUser).build();
 
-            attachment.readChannelWithHandler();
+            AttachmentImpl attachment = AttachmentImpl.create(client, readHandler, WriteHandler.getHandler());
+
+            // FIXME: 31/05/18 here should be more convenient id number
+            connectedUsers.put(newUser.getId(), newUser);
+
+            attachment.read();
+
+            // FIXME: 04/06/18 id should be gotten through login service, database or smth similar
+            int id = 0;
+            userDB.updateUserData(id, newUser);
         } catch (IOException e) {
-            // TODO: 03/03/18 logger
-            e.printStackTrace();
+            logger.error("Error happened while creating new user", e);
         }
     }
 }

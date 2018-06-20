@@ -1,17 +1,22 @@
 package com.alphagfx.common.connection;
 
-import com.alphagfx.common.IProcessor;
+import com.alphagfx.common.Codecs;
 import com.alphagfx.common.Message;
 import com.alphagfx.common.Participant;
+import com.alphagfx.common.Processor;
+import org.apache.log4j.Logger;
 
+import java.nio.ByteBuffer;
 import java.nio.channels.CompletionHandler;
 
 class ReadHandler implements CompletionHandler<Integer, Attachment> {
 
-    private IProcessor processor;
+    private static Logger logger = Logger.getLogger(ReadHandler.class);
 
-    private ReadHandler(IProcessor processor) {
-        this.processor = processor != null ? processor : new IProcessor() {
+    private Processor processor;
+
+    private ReadHandler(Processor processor) {
+        this.processor = processor != null ? processor : new Processor() {
             @Override
             public void process(Message message, Participant user) {
 
@@ -19,21 +24,19 @@ class ReadHandler implements CompletionHandler<Integer, Attachment> {
         };
     }
 
-    public static ReadHandler create(IProcessor processor) {
+    public static ReadHandler create(Processor processor) {
         return new ReadHandler(processor);
     }
 
     @Override
     public void completed(Integer result, Attachment attachment) {
-
-        Message message = attachment.read(result);
-        processor.process(message, attachment.getUser());
+        ByteBuffer buffer = ByteBuffer.allocate(1024);
+        Message message = Codecs.decode(buffer.getInt(), buffer);
+        processor.process(message, Participant.NULL);
     }
 
     @Override
-    public void failed(Throwable throwable, Attachment user) {
-        // TODO: 05/03/18 logger
-        System.err.println("Failed to read user");
-        throwable.printStackTrace();
+    public void failed(Throwable e, Attachment user) {
+        logger.warn("Failed to read user", e);
     }
 }

@@ -1,74 +1,21 @@
 package com.alphagfx.common;
 
-import com.alphagfx.common.connection.ConnectionHandler;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import com.alphagfx.common.connection.ConnectionHandlerAsync;
 
-import java.net.InetSocketAddress;
+import java.util.HashMap;
+import java.util.Map;
 
 public class ConnectionHandlerTest {
 
-    private IUserDB db;
-    private ConnectionHandler handler;
+    private UserDatabase db;
+    private ConnectionHandlerAsync handler;
+
+    private Map<Integer, Participant> connectedUsers = new HashMap<>();
 
     private String addr = "localhost";
     private int port = Const.SERVER_PORT;
 
-    @Test
-    public void create() {
-        IUserDB db = new IUserDB() {
-            @Override
-            public Participant getUserById(int id) {
-                return null;
-            }
+    // TODO: 31/05/18 create Tests
 
-            @Override
-            public void putUser(Participant user) {
-
-            }
-        };
-        InetSocketAddress address = new InetSocketAddress("localhost", Const.SERVER_PORT);
-        ConnectionHandler handler = ConnectionHandler.create(null, db);
-        Assert.assertNotNull(handler);
-    }
-
-    @Before
-    public void setup() {
-        db = new IUserDB() {
-            @Override
-            public Participant getUserById(int id) {
-                return null;
-            }
-
-            @Override
-            public void putUser(Participant user) {
-
-            }
-        };
-        InetSocketAddress address = new InetSocketAddress(addr, port);
-        handler = ConnectionHandler.create(address, db);
-
-        handler.launchServer();
-    }
-
-    @Test
-    public void connect() {
-
-        ConnectionHandler client = ConnectionHandler.create(new InetSocketAddress("localhost", Const.CLIENT_PORT), new IUserDB() {
-            @Override
-            public Participant getUserById(int id) {
-                return null;
-            }
-
-            @Override
-            public void putUser(Participant user) {
-
-            }
-        });
-
-        InetSocketAddress address = new InetSocketAddress("localhost", Const.SERVER_PORT);
-        client.connect(address);
-    }
 
 }

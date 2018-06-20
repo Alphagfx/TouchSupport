@@ -3,7 +3,7 @@ package com.alphagfx.common;
 /**
  * Interface for processing incoming messages
  */
-public interface IProcessor {
+public interface Processor {
 
     void process(Message message, Participant user);
 }
