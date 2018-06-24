@@ -1,52 +1,68 @@
 package com.alphagfx.server;
 
-import java.io.IOException;
+import org.apache.log4j.Logger;
+
 import java.net.InetSocketAddress;
-import java.nio.channels.AsynchronousChannelGroup;
-import java.nio.channels.AsynchronousServerSocketChannel;
-import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
+import java.util.Objects;
+import java.util.Scanner;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class SimpleServer {
 
-    private AsynchronousChannelGroup group;
-    private AsynchronousServerSocketChannel server;
+    private static Logger logger = Logger.getLogger(SimpleServer.class);
+
+    private MessageProcessor processor;
+    private ConnectionHandler server;
+    private ProcessingQueue<User> processingQueue;
+    private Factory<CompletionHandler> completionHandlerFactory;
+
+    private ExecutorService executor = Executors.newFixedThreadPool(1);
+
+    private Scanner scanner = new Scanner(System.in);
+
+    private boolean alive = true;
+
+    private SimpleServer(MessageProcessor processor, ProcessingQueue<User> processingQueue, ConnectionHandler server) {
+        Objects.requireNonNull(processor);
+        Objects.requireNonNull(processingQueue);
+        Objects.requireNonNull(server);
+
+        this.processor = processor;
+    }
 
     public static void main(String[] args) {
-        new SimpleServer().startServer();
+        ProcessingQueueImpl queue = new ProcessingQueueImpl();
+        SimpleServer server = create(new MessageProcessorImpl(queue), queue, new ConnectionHandler(new InetSocketAddress(5000), queue));
+
+        server.launch();
     }
 
-    private void startServer() {
-        try {
-            group = AsynchronousChannelGroup.withFixedThreadPool(5, Executors.defaultThreadFactory());
-        } catch (IOException e) {
-            e.printStackTrace();
+    public static SimpleServer create(MessageProcessor processor, ProcessingQueue<User> processingQueue, ConnectionHandler server) {
+        return new SimpleServer(processor, processingQueue, server);
+    }
+
+    public void launch() {
+        executor.submit(processor);
+        server.start();
+        act();
+    }
+
+    private void act() {
+        while (alive) {
+            readInput();
         }
+        executor.shutdown();
+        server.stop();
+    }
 
-        try {
-            server = AsynchronousServerSocketChannel.open();
-            server.bind(new InetSocketAddress(5000));
-        } catch (IOException e) {
-            e.printStackTrace();
+    private void readInput() {
+        String line = scanner.nextLine();
+        if ("exit".equalsIgnoreCase(line)) {
+            alive = false;
         }
-
-        acceptConnection();
     }
 
-    private void acceptConnection() {
 
-        server.accept(null, new CompletionHandler<AsynchronousSocketChannel, Void>() {
-            @Override
-            public void completed(AsynchronousSocketChannel asynchronousSocketChannel, Void aVoid) {
-                System.out.println("Connection accepted");
-            }
-
-            @Override
-            public void failed(Throwable throwable, Void aVoid) {
-
-            }
-        });
-
-    }
 }
