@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<beans xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns="http://www.springframework.org/schema/beans"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+   http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
+
+    <!--<bean id = "helloWorld" class = "com.tutorialspoint.HelloWorld">-->
+    <!--<property name = "message" value = "Hello World!"/>-->
+    <!--</bean>-->
+    <bean id="server" class="com.alphagfx.server.SimpleServer">
+        <constructor-arg ref="mainProcessor"/>
+        <constructor-arg ref="connectionHandler"/>
+    </bean>
+
+    <bean id="mainProcessor" class="com.alphagfx.server.MainProcessor">
+
+    </bean>
+
+    <bean id="messageProcessor" class="com.alphagfx.server.MessageProcessorImpl">
+        <constructor-arg ref="processingQueue"/>
+        <constructor-arg ref="database"/>
+    </bean>
+
+    <bean id="processingQueue" class="com.alphagfx.server.ProcessingQueueImpl"/>
+
+    <bean id="database" class="com.alphagfx.common.MapDatabase"/>
+
+    <bean id="connectionHandler" class="com.alphagfx.server.ConnectionHandler">
+        <constructor-arg ref="address"/>
+        <constructor-arg ref="mainProcessor"/>
+    </bean>
+
+    <bean id="address" class="java.net.InetSocketAddress">
+        <constructor-arg value="5000"/>
+    </bean>
+
+</beans>

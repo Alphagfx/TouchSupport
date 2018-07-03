@@ -8,11 +8,21 @@ import java.nio.channels.CompletionHandler;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-public class ProcessingQueueImpl<T> implements ProcessingQueue<User>, Factory<CompletionHandler> {
+public class ProcessingQueueImpl<T> implements ProcessingQueue<User>, Factory<CompletionHandler>, MessageProcessor {
 
     private static Logger logger = Logger.getLogger(ProcessingQueueImpl.class);
 
     private Queue<User> queue = new ConcurrentLinkedQueue<>();
+
+    @Override
+    public void process(User user) {
+
+    }
+
+    @Override
+    public CompletionHandler newConnection() {
+        return getRead();
+    }
 
     @Override
     public boolean add(User t) {
@@ -27,12 +37,12 @@ public class ProcessingQueueImpl<T> implements ProcessingQueue<User>, Factory<Co
 
     @Override
     public CompletionHandler<AsynchronousSocketChannel, AsynchronousServerSocketChannel> getAccept() {
-        return new AcceptHandler();
+        return new AcceptHandler(this);
     }
 
     @Override
     public CompletionHandler getRead() {
-        return new ReadHandler();
+        return new ReadWriteHandler(this);
     }
 
     @Override
@@ -40,27 +50,9 @@ public class ProcessingQueueImpl<T> implements ProcessingQueue<User>, Factory<Co
         return null;
     }
 
-
-    private class AcceptHandler implements CompletionHandler<AsynchronousSocketChannel, AsynchronousServerSocketChannel> {
-
-        @Override
-        public void completed(AsynchronousSocketChannel newConnection, AsynchronousServerSocketChannel server) {
-            logger.info("Connection accepted");
-
-            readConnection(newConnection);
-            server.accept(server, this);
-        }
-
-        @Override
-        public void failed(Throwable e, AsynchronousServerSocketChannel server) {
-            logger.warn("Failed to accept connection", e);
-        }
-
-        private void readConnection(AsynchronousSocketChannel channel) {
-            User user = new User(channel);
-            channel.read(user.buffer, user, new ReadHandler());
-        }
-
+    @Override
+    public CompletionHandler getConnect() {
+        return new ConnectHandler(this);
     }
 
     private class ReadHandler implements CompletionHandler<Integer, User> {
@@ -78,4 +70,5 @@ public class ProcessingQueueImpl<T> implements ProcessingQueue<User>, Factory<Co
             logger.warn("Fail reading channel", e);
         }
     }
+
 }

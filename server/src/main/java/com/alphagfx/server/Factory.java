@@ -8,4 +8,6 @@ public interface Factory<T extends CompletionHandler> {
     T getRead();
 
     T getWrite();
+
+    T getConnect();
 }

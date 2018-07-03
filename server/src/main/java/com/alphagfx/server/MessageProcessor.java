@@ -1,5 +1,9 @@
 package com.alphagfx.server;
 
-public interface MessageProcessor extends Runnable {
+import java.nio.channels.CompletionHandler;
+
+public interface MessageProcessor {
     void process(User user);
+
+    CompletionHandler newConnection();
 }

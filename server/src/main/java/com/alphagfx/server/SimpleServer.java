@@ -1,9 +1,9 @@
 package com.alphagfx.server;
 
 import org.apache.log4j.Logger;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.support.ClassPathXmlApplicationContext;
 
-import java.net.InetSocketAddress;
-import java.nio.channels.CompletionHandler;
 import java.util.Objects;
 import java.util.Scanner;
 import java.util.concurrent.ExecutorService;
@@ -15,54 +15,61 @@ public class SimpleServer {
 
     private MessageProcessor processor;
     private ConnectionHandler server;
-    private ProcessingQueue<User> processingQueue;
-    private Factory<CompletionHandler> completionHandlerFactory;
 
     private ExecutorService executor = Executors.newFixedThreadPool(1);
 
-    private Scanner scanner = new Scanner(System.in);
+    private TerminalReader input = new TerminalReader();
 
-    private boolean alive = true;
-
-    private SimpleServer(MessageProcessor processor, ProcessingQueue<User> processingQueue, ConnectionHandler server) {
+    protected SimpleServer(MessageProcessor processor, ConnectionHandler server) {
         Objects.requireNonNull(processor);
-        Objects.requireNonNull(processingQueue);
         Objects.requireNonNull(server);
 
         this.processor = processor;
+        this.server = server;
     }
 
     public static void main(String[] args) {
-        ProcessingQueueImpl queue = new ProcessingQueueImpl();
-        SimpleServer server = create(new MessageProcessorImpl(queue), queue, new ConnectionHandler(new InetSocketAddress(5000), queue));
 
-        server.launch();
+        ApplicationContext context = new ClassPathXmlApplicationContext("server.xml");
+        SimpleServer server = (SimpleServer) context.getBean("server");
+
+        server.startServer();
+        server.stopServer();
     }
 
-    public static SimpleServer create(MessageProcessor processor, ProcessingQueue<User> processingQueue, ConnectionHandler server) {
-        return new SimpleServer(processor, processingQueue, server);
-    }
+    public void startServer() {
+//        executor.submit(processor);
 
-    public void launch() {
-        executor.submit(processor);
         server.start();
-        act();
+        logger.info("Server has been launched");
+        input.read();
     }
 
-    private void act() {
-        while (alive) {
-            readInput();
-        }
+    public void stopServer() {
         executor.shutdown();
         server.stop();
     }
 
-    private void readInput() {
-        String line = scanner.nextLine();
-        if ("exit".equalsIgnoreCase(line)) {
-            alive = false;
+    private class TerminalReader {
+
+        private boolean alive = true;
+        private Scanner scanner = new Scanner(System.in);
+
+        private void read() {
+            while (alive) {
+                readInput();
+            }
         }
+
+        private void readInput() {
+            String line = scanner.nextLine();
+            if ("exit".equalsIgnoreCase(line)) {
+                alive = false;
+            }
+        }
+
     }
+
 
 
 }

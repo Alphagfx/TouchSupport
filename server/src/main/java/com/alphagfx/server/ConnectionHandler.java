@@ -29,7 +29,7 @@ class ConnectionHandler {
     public void start() {
         startServer();
         acceptConnections();
-        logger.info("Successful launch");
+        logger.info("Successful startServer");
     }
 
     public void stop() {
@@ -38,6 +38,18 @@ class ConnectionHandler {
         } catch (InterruptedException e) {
             logger.error("Server stop interrupted", e);
         }
+    }
+
+    public User connect(SocketAddress address) {
+        try {
+            AsynchronousSocketChannel channel = AsynchronousSocketChannel.open(group);
+            User user = new User(channel);
+            channel.connect(address, user, handlersFactory.getConnect());
+            return user;
+        } catch (IOException e) {
+            logger.error("", e);
+        }
+        return null;
     }
 
     private void startServer() {
@@ -57,7 +69,7 @@ class ConnectionHandler {
     }
 
     private void acceptConnections() {
-        CompletionHandler<AsynchronousSocketChannel, AsynchronousServerSocketChannel> handler = handlersFactory.getAccept();
+        CompletionHandler handler = handlersFactory.getAccept();
         server.accept(server, handler);
     }
 
