@@ -1,6 +1,7 @@
 package com.alphagfx.common;
 
 import com.alphagfx.common.connection.ConnectionHandlerAsync;
+import com.alphagfx.common.database.UserDatabase;
 
 import java.util.HashMap;
 import java.util.Map;

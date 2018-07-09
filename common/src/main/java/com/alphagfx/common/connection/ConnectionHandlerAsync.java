@@ -3,7 +3,7 @@ package com.alphagfx.common.connection;
 import com.alphagfx.common.Const;
 import com.alphagfx.common.Participant;
 import com.alphagfx.common.Processor;
-import com.alphagfx.common.UserDatabase;
+import com.alphagfx.common.database.UserDatabase;
 import org.apache.log4j.Logger;
 
 import java.io.IOException;

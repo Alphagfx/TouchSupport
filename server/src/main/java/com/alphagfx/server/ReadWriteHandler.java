@@ -10,10 +10,7 @@ class ReadWriteHandler<T> implements CompletionHandler<Integer, User> {
     private static Logger logger = Logger.getLogger(ReadWriteHandler.class);
 
     private MessageProcessor messageProcessor;
-    private boolean write = false;
     private boolean read = true;
-
-    private int completed = 0;
 
     ReadWriteHandler(MessageProcessor messageProcessor) {
         this.messageProcessor = messageProcessor;
@@ -21,57 +18,66 @@ class ReadWriteHandler<T> implements CompletionHandler<Integer, User> {
 
     @Override
     public void completed(Integer bytesTreated, User user) {
+        if (isReading()) {
+            readInput(bytesTreated, user);
 
-        System.err.println(Thread.currentThread());
-
-        if (read) {
-            if (bytesTreated == -1) {
-                closeChannel();
-            } else if (bytesTreated == 0) {
-                doNothing();
-            } else {
-                readMessage();
-                messageProcessor.process(user);
-            }
             if (user.hasItemsToWrite()) {
-                System.err.println("Writing to the channel");
-                user.buffer.clear();
-                ByteBuffer buffer = user.writeQueue.remove();
-                user.buffer.put(buffer);
-                user.buffer.flip();
+                logger.debug("Writing to the channel");
 
-                read = false;
-                user.connection.write(user.buffer, user, this);
-            } else {
-                user.buffer.clear();
-                read = true;
-
-                user.connection.read(user.buffer, user, this);
+                writeToUserAndUnsetRead(user);
+                return;
             }
-        } else {
-            user.buffer.clear();
-            read = true;
-
-            user.connection.read(user.buffer, user, this);
         }
 
+        readUserChannelAndSetRead(user);
+    }
 
+    private boolean isReading() {
+        return read;
+    }
+
+    private void readInput(int bytesTreated, User user) {
+        if (bytesTreated == -1) {
+            closeChannel();
+        } else if (bytesTreated == 0) {
+            doNothing();
+        } else {
+            readMessage();
+            messageProcessor.process(user);
+        }
+    }
+
+    private void writeToUserAndUnsetRead(User user) {
+        user.buffer.clear();
+        ByteBuffer buffer = user.writeQueue.remove();
+        user.buffer.put(buffer);
+        user.buffer.flip();
+
+        read = false;
+        user.connection.write(user.buffer, user, this);
+    }
+
+    private void readUserChannelAndSetRead(User user) {
+        user.buffer.clear();
+        read = true;
+
+        user.connection.read(user.buffer, user, this);
     }
 
     private void readMessage() {
-        logger.info("Reading the channel");
+        logger.debug("Reading the channel");
     }
 
     private void doNothing() {
-        logger.info("Channel is procrastinating");
+        logger.debug("Channel is procrastinating");
     }
 
     private void closeChannel() {
-        logger.info("This channel read equals -1 and the channel should be closed");
+        logger.debug("This channel read equals -1 and the channel should be closed");
     }
 
     @Override
     public void failed(Throwable e, User user) {
-        logger.warn("Channel read error", e);
+        logger.warn("Channel error", e);
     }
 }

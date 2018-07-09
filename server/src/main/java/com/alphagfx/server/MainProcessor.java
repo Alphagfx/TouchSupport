@@ -17,12 +17,12 @@ public class MainProcessor implements MessageProcessor, Factory<CompletionHandle
 
     @Override
     public CompletionHandler getWrite() {
-        return new ReadWriteHandler(this);
+        return getRead();
     }
 
     @Override
     public CompletionHandler getConnect() {
-        return null;
+        return new ConnectHandler(this);
     }
 
     @Override
@@ -30,12 +30,29 @@ public class MainProcessor implements MessageProcessor, Factory<CompletionHandle
         if (user == null) {
             return;
         }
+        String message = getMessage(user);
+
+        System.out.println("Client said: " + message);
+
+        user.write(encode("You wrote " + message));
+    }
+
+    private String getMessage(User user) {
         ByteBuffer buffer = user.buffer;
         buffer.flip();
-        String message = Charset.defaultCharset().decode(buffer).toString();
+
+        String message = decode(buffer);
+
         buffer.clear();
-        System.out.println("Client said: " + message);
-        user.write(Charset.defaultCharset().encode("You wrote " + message));
+        return message;
+    }
+
+    private String decode(ByteBuffer buffer) {
+        return Charset.defaultCharset().decode(buffer).toString();
+    }
+
+    private ByteBuffer encode(String message) {
+        return Charset.defaultCharset().encode(message);
     }
 
     @Override

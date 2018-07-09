@@ -16,7 +16,8 @@ class ConnectHandler implements CompletionHandler<Void, User> {
 
     @Override
     public void completed(Void aVoid, User user) {
-        user.connection.read(user.buffer, user, processor.newConnection());
+        CompletionHandler<Integer, User> rwHandler = processor.newConnection();
+        user.connection.read(user.buffer, user, rwHandler);
     }
 
     @Override

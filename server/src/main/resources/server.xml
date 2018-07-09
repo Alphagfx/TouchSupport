@@ -23,7 +23,7 @@
 
     <bean id="processingQueue" class="com.alphagfx.server.ProcessingQueueImpl"/>
 
-    <bean id="database" class="com.alphagfx.common.MapDatabase"/>
+    <bean id="database" class="com.alphagfx.common.database.MapDatabase"/>
 
     <bean id="connectionHandler" class="com.alphagfx.server.ConnectionHandler">
         <constructor-arg ref="address"/>

@@ -5,7 +5,7 @@ public class Message {
     private int command;
     private int address;
     private int size;
-    private String message = "";
+    private String message;
 
     public Message(int command, int address, String message) {
         this.command = command;
@@ -41,9 +41,7 @@ public class Message {
         }
         if (o instanceof Message) {
             Message m = ((Message) o);
-            if (m.size == size && m.command == command && m.address == address && m.message.equals(message)) {
-                return true;
-            }
+            return m.size == size && m.command == command && m.address == address && m.message.equals(message);
         }
         return false;
     }

@@ -16,11 +16,8 @@ class ReadHandler implements CompletionHandler<Integer, Attachment> {
     private Processor processor;
 
     private ReadHandler(Processor processor) {
-        this.processor = processor != null ? processor : new Processor() {
-            @Override
-            public void process(Message message, Participant user) {
+        this.processor = processor != null ? processor : (message, user) -> {
 
-            }
         };
     }
 

@@ -1,9 +1,13 @@
 package com.alphagfx.client;
 
-import com.alphagfx.common.*;
+import com.alphagfx.common.Const;
+import com.alphagfx.common.Message;
+import com.alphagfx.common.Participant;
 import com.alphagfx.common.connection.Attachment;
 import com.alphagfx.common.connection.AttachmentImpl;
 import com.alphagfx.common.connection.ConnectionHandlerAsync;
+import com.alphagfx.common.database.MapDatabase;
+import com.alphagfx.common.database.UserDatabase;
 import org.apache.commons.lang3.EnumUtils;
 import org.apache.log4j.Logger;
 

@@ -19,7 +19,7 @@ public class Codecs {
         }
     };
 
-    private static Map<Integer, Codec> codecs = new ConcurrentHashMap<Integer, Codec>();
+    private static Map<Integer, Codec> codecs = new ConcurrentHashMap<>();
 
     public static Message decode(int codec, ByteBuffer buffer) {
         return getCodec(codec).decode(buffer);

@@ -1,11 +1,13 @@
-package com.alphagfx.common;
+package com.alphagfx.common.database;
+
+import com.alphagfx.common.Participant;
 
 import java.util.HashMap;
 import java.util.Map;
 
-public class MapDatabase implements UserDatabase {
+public class MapDatabase<T> implements UserDatabase<T> {
 
-    private Map<Integer, Participant> users;
+    private Map<Integer, T> users;
 
     private MapDatabase() {
         users = new HashMap<>();
@@ -16,12 +18,12 @@ public class MapDatabase implements UserDatabase {
     }
 
     @Override
-    public Participant get(int id) {
-        return users.getOrDefault(id, Participant.NULL);
+    public T get(int id) {
+        return users.getOrDefault(id, (T) Participant.NULL);
     }
 
     @Override
-    public void put(int id, Participant user) {
+    public void put(int id, T user) {
         users.putIfAbsent(id, user);
     }
 
@@ -36,13 +38,13 @@ public class MapDatabase implements UserDatabase {
     }
 
     @Override
-    public void updateDatabaseData(int id, Participant user) {
+    public void updateDatabaseData(int id, T userUpdated) {
 
     }
 
     @Override
-    public void updateUserData(int id, Participant user) {
-        Participant data = get(id);
+    public void updateUserData(int id, T userToUpdate) {
+        T data = get(id);
 
 //        user.
     }

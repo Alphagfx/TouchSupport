@@ -3,7 +3,7 @@ package com.alphagfx.server;
 import com.alphagfx.common.Message;
 import com.alphagfx.common.Participant;
 import com.alphagfx.common.Processor;
-import com.alphagfx.common.UserDatabase;
+import com.alphagfx.common.database.UserDatabase;
 
 import java.util.Arrays;
 import java.util.Map;
@@ -11,8 +11,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class ServerProcessor implements Processor {
 
-    private UserDatabase registeredUsers;
-    private UserDatabase users;
+    private UserDatabase<Participant> registeredUsers;
+    private UserDatabase<Participant> users;
 
     private Map<Boolean, Participant> agents = new ConcurrentHashMap<>();
 

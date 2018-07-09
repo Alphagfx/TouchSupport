@@ -1,6 +1,6 @@
 package com.alphagfx.server;
 
-import com.alphagfx.common.UserDatabase;
+import com.alphagfx.common.database.UserDatabase;
 
 import java.nio.ByteBuffer;
 import java.nio.channels.CompletionHandler;

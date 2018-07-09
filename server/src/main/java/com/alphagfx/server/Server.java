@@ -1,7 +1,10 @@
 package com.alphagfx.server;
 
-import com.alphagfx.common.*;
+import com.alphagfx.common.Const;
+import com.alphagfx.common.Processor;
 import com.alphagfx.common.connection.ConnectionHandlerAsync;
+import com.alphagfx.common.database.MapDatabase;
+import com.alphagfx.common.database.UserDatabase;
 import org.apache.log4j.Logger;
 
 import java.io.IOException;
@@ -31,12 +34,7 @@ public class Server implements Runnable {
 
         InetSocketAddress address = new InetSocketAddress("localhost", Const.SERVER_PORT);
 
-        Processor processor = new ServerProcessor(users, registeredUsers, new Processor() {
-            @Override
-            public void process(Message message, Participant user) {
-                System.out.println("" + user + " | " + message);
-            }
-        });
+        Processor processor = new ServerProcessor(users, registeredUsers, (message, user) -> System.out.println("" + user + " | " + message));
 
         ConnectionHandlerAsync handler = ConnectionHandlerAsync.create(address, users, registeredUsers, processor);
 

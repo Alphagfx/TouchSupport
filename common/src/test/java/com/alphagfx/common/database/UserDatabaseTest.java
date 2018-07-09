@@ -1,5 +1,7 @@
-package com.alphagfx.common;
+package com.alphagfx.common.database;
 
+import com.alphagfx.common.Participant;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -13,7 +15,7 @@ import static org.junit.Assert.assertEquals;
 @RunWith(Parameterized.class)
 public class UserDatabaseTest {
 
-    private UserDatabase userDB;
+    private UserDatabase<Participant> userDB;
 
     public UserDatabaseTest(UserDatabase userDB) {
         this.userDB = userDB;
@@ -33,7 +35,7 @@ public class UserDatabaseTest {
 
     @Test
     public void getWhileDatabaseIsEmpty() {
-        assertEquals(Participant.NULL, userDB.get(0));
+        Assert.assertEquals(Participant.NULL, userDB.get(0));
     }
 
     @Test
