@@ -6,8 +6,8 @@ import java.nio.ByteBuffer;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-public class Participant {
-    public static final Participant NULL = new Participant(-1, "NO_USER");
+public class Participant implements Updatable<Participant> {
+    public static final Participant NULL = new Participant(-1, "");
 
     private final UserData data = new UserData();
 
@@ -69,6 +69,14 @@ public class Participant {
     @Override
     public String toString() {
         return "[id =" + getId() + ", name =" + getName() + "]";
+    }
+
+    @Override
+    public void update(Participant toUpdateFrom) {
+        if (toUpdateFrom == null) {
+            return;
+        }
+        data.update(toUpdateFrom.data);
     }
 }
 

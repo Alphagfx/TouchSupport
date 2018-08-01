@@ -1,6 +1,8 @@
 package com.alphagfx.common.database;
 
-public interface UserDatabase<T> {
+import com.alphagfx.common.Updatable;
+
+public interface UserDatabase<T extends Updatable<T>> {
 
     T get(int id);
 

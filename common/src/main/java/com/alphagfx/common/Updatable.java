@@ -1,5 +1,5 @@
 package com.alphagfx.common;
 
-public interface Updatable<T extends Updatable> {
+public interface Updatable<T> {
     void update(T toUpdateFrom);
 }

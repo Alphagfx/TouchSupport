@@ -16,16 +16,19 @@ import static org.junit.Assert.assertEquals;
 public class UserDatabaseTest {
 
     private UserDatabase<Participant> userDB;
+    private Object nullObject;
 
-    public UserDatabaseTest(UserDatabase userDB) {
+    public UserDatabaseTest(UserDatabase userDB, Object nullObject) {
         this.userDB = userDB;
+        this.nullObject = nullObject;
     }
 
     @Parameterized.Parameters
-    public static Collection<Object[]> instancesToTest() {
+    public static Collection<Object[]> instancesToTest() throws ClassNotFoundException {
         return Arrays.asList(
-                new Object[][]{new Object[]{MapDatabase.create()}
-                });
+                new Object[]{MapDatabase.create(), null},
+                new Object[]{MapDatabase.create(Participant.NULL), Participant.NULL},
+                new Object[]{SQLParticipantDatabase.create(), null});
     }
 
     @Before
@@ -35,7 +38,7 @@ public class UserDatabaseTest {
 
     @Test
     public void getWhileDatabaseIsEmpty() {
-        Assert.assertEquals(Participant.NULL, userDB.get(0));
+        Assert.assertEquals(nullObject, userDB.get(0));
     }
 
     @Test
@@ -48,10 +51,14 @@ public class UserDatabaseTest {
     @Test
     public void put() {
         Participant user = Participant.create(42, "testMe #42");
+        user.getData().login = "unique_login";
+        user.getData().password = "random password";
+
         userDB.put(15, user);
 
-        assertEquals(user, userDB.get(15));
-        assertEquals(Participant.NULL, userDB.get(42));
+        user.getData().id = 15;
+        assertEquals(user.getName(), userDB.get(15).getName());
+        assertEquals(nullObject, userDB.get(42));
     }
 
     @Test
@@ -61,7 +68,7 @@ public class UserDatabaseTest {
 
         userDB.remove(3);
 
-        assertEquals(Participant.NULL, userDB.get(3));
+        assertEquals(nullObject, userDB.get(3));
     }
 
     @Test
@@ -70,18 +77,29 @@ public class UserDatabaseTest {
 
         clear();
 
-        assertEquals(Participant.NULL, userDB.get(3));
+        assertEquals(nullObject, userDB.get(3));
     }
 
 
     @Test
     public void updateDatabaseData() {
-        putUser(1, "Alex");
+        Participant user = Participant.create(1, "Alex");
+        user.getData().login = "default_my_login";
+        userDB.put(1, user);
+
         Participant userUpdated = Participant.create(2, "Freddy");
+        userUpdated.getData().login = "very_unique_login";
+        userUpdated.getData().password = "happy password";
 
         userDB.updateDatabaseData(1, userUpdated);
 
         assertEquals("Freddy", userDB.get(1).getName());
+    }
+
+    @Test
+    public void updateDatabaseFromNull() {
+        putUser(1, "Tom");
+        userDB.updateDatabaseData(1, (Participant) nullObject);
     }
 
     @Test
@@ -92,6 +110,14 @@ public class UserDatabaseTest {
         userDB.updateUserData(1, user);
 
         assertEquals(userDB.get(1).getName(), user.getName());
+    }
+
+    @Test
+    public void updateUserFromNull() {
+        String name = "temp#1";
+        Participant user = Participant.create(0, name);
+        userDB.updateUserData(1, user);
+        assertEquals(name, user.getName());
     }
 
     @Test
